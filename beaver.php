@@ -10,7 +10,7 @@
  * @copyright  (c) 2010-2011, Kijin Sung <kijin.sung@gmail.com>
  * @license    LGPL v3 <http://www.gnu.org/copyleft/lesser.html>
  * @link       http://github.com/kijin/beaver
- * @version    0.1
+ * @version    0.1.1
  * 
  * -----------------------------------------------------------------------------
  * 
@@ -48,7 +48,7 @@ class Base
     // The following properties may be overridden by children.
     
     protected static $_table = null;
-    public $id;
+    protected static $_pk = 'id';
     
     // Call these method to inject a PDO object (or equivalent) to the ORM.
     
@@ -109,16 +109,16 @@ class Base
             
             if (self::$_db_is_pgsql)
             {
-                $query .= ' RETURNING id';
+                $query .= ' RETURNING ' . static::$_pk;
                 $ps = self::$_db->prepare($query);
                 $ps->execute($values);
-                $this->id = $ps->fetchColumn();
+                $this->{static::$_pk} = $ps->fetchColumn();
             }
             else
             {
                 $ps = self::$_db->prepare($query);
                 $ps->execute($values);
-                $this->id = self::$_db->lastInsertId();
+                $this->{static::$_pk} = self::$_db->lastInsertId();
             }
             
             $this->_is_unsaved_object = false;
@@ -130,8 +130,8 @@ class Base
         {
             $query = 'UPDATE ' . static::$_table . ' SET ';
             $query .= implode(', ', array_map(function($str) { return $str . ' = ?'; }, $fields));
-            $query .= ' WHERE id = ?';
-            $values[] = $this->id;
+            $query .= ' WHERE ' . static::$_pk . ' = ?';
+            $values[] = $this->{static::$_pk};
             
             $ps = self::$_db->prepare($query);
             $ps->execute($values);
@@ -150,8 +150,8 @@ class Base
     
     public function delete()
     {
-        $ps = self::$_db->prepare('DELETE FROM ' . static::$_table . ' WHERE id = ?');
-        $ps->execute(array($this->id));
+        $ps = self::$_db->prepare('DELETE FROM ' . static::$_table . ' WHERE ' . static::$_pk . ' = ?');
+        $ps->execute(array($this->{static::$_pk}));
         $this->_is_unsaved_object = true;
     }
     
@@ -168,7 +168,7 @@ class Base
         
         if (!is_array($id))
         {
-            $ps = self::$_db->prepare('SELECT * FROM ' . static::$_table . ' WHERE id = ? LIMIT 1');
+            $ps = self::$_db->prepare('SELECT * FROM ' . static::$_table . ' WHERE ' . static::$_pk . ' = ? LIMIT 1');
             $ps->execute(array($id));
             $object = $ps->fetchObject(get_called_class(), array(false));
             return $object ?: null;
@@ -178,7 +178,7 @@ class Base
         
         else
         {
-            $query = 'SELECT * FROM ' . static::$_table . ' WHERE id IN (';
+            $query = 'SELECT * FROM ' . static::$_table . ' WHERE ' . static::$_pk . ' IN (';
             $query .= implode(', ', array_fill(0, count($id), '?')) . ')';
             $ps = self::$_db->prepare($query);
             $ps->execute($id);
@@ -186,7 +186,7 @@ class Base
             $return = array_combine($id, array_fill(0, count($id), null));  // Preserve order
             while ($object = $ps->fetchObject(get_called_class(), array(false)))
             {
-                $return[$object->id] = $object;
+                $return[$object->{static::$_pk}] = $object;
             }
             return $return;
         }
