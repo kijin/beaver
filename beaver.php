@@ -50,25 +50,25 @@ class Base
     protected static $_table = null;
     protected static $_pk = 'id';
     
-    // Call these method to inject a PDO object (or equivalent) to the ORM.
+    // Call this method to inject a PDO object (or equivalent) to the ORM.
     
     public static function setDatabase($db)
     {
         self::$_db = $db;
-        if (get_class($db) === 'PDO' && $db->getAttribute(\PDO::ATTR_DRIVER_NAME) === 'pgsql')
+        if ($db instanceof \PDO && $db->getAttribute(\PDO::ATTR_DRIVER_NAME) === 'pgsql')
         {
             self::$_db_is_pgsql = true;
         }
     }
     
-    // Call these method to inject a Memcached object (or equivalent) to the ORM.
+    // Call this method to inject a Memcached object (or equivalent) to the ORM.
     
     public static function setCache($cache)
     {
         self::$_cache = $cache;
     }
     
-    // Constructor.
+    // Constructor. The optional argument is set to false if it's called by get() or find().
     
     public function __construct($auto = true)
     {
