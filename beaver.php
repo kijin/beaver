@@ -10,7 +10,7 @@
  * @copyright  (c) 2010-2011, Kijin Sung <kijin.sung@gmail.com>
  * @license    LGPL v3 <http://www.gnu.org/copyleft/lesser.html>
  * @link       http://github.com/kijin/beaver
- * @version    0.1.1
+ * @version    0.1.2
  * 
  * -----------------------------------------------------------------------------
  * 
@@ -52,7 +52,7 @@ class Base
     
     // Call this method to inject a PDO object (or equivalent) to the ORM.
     
-    public static function setDatabase($db)
+    public static function set_database($db)
     {
         self::$_db = $db;
         if ($db instanceof \PDO && $db->getAttribute(\PDO::ATTR_DRIVER_NAME) === 'pgsql')
@@ -63,7 +63,7 @@ class Base
     
     // Call this method to inject a Memcached object (or equivalent) to the ORM.
     
-    public static function setCache($cache)
+    public static function set_cache($cache)
     {
         self::$_cache = $cache;
     }
@@ -157,12 +157,16 @@ class Base
     
     // Get method.
     
-    public static function get($id)
+    public static function get($id, $cache = false)
     {
-        // Auto-convert multiple arguments into an array.
+        // Look up the cache.
         
-        $args = func_get_args();
-        if (count($args) > 1) $id = $args;
+        if ($cache && self::$_cache)
+        {
+            $cache_key = '_BEAVER::' . get_called_class() . ':' . (is_array($id) ? sha1(serialize($id)) : $id);
+            $cache_result = self::$_cache->get($cache_key);
+            if ($cache_result !== false) return $cache_result;
+        }
         
         // If fetching a single object.
         
@@ -171,7 +175,7 @@ class Base
             $ps = self::$_db->prepare('SELECT * FROM ' . static::$_table . ' WHERE ' . static::$_pk . ' = ? LIMIT 1');
             $ps->execute(array($id));
             $object = $ps->fetchObject(get_called_class(), array(false));
-            return $object ?: null;
+            $result = $object ?: null;
         }
         
         // If fetching an array of objects.
@@ -183,13 +187,17 @@ class Base
             $ps = self::$_db->prepare($query);
             $ps->execute($id);
             
-            $return = array_combine($id, array_fill(0, count($id), null));  // Preserve order
+            $result = array_combine($id, array_fill(0, count($id), null));  // Preserve order
             while ($object = $ps->fetchObject(get_called_class(), array(false)))
             {
-                $return[$object->{static::$_pk}] = $object;
+                $result[$object->{static::$_pk}] = $object;
             }
-            return $return;
         }
+        
+        // Store in cache.
+        
+        if ($cache && self::$_cache) self::$_cache->set($cache_key, $result, (int)$cache);
+        return $result;
     }
     
     // Generic search method.
