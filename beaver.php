@@ -202,17 +202,33 @@ class Base
     
     // Generic search method.
     
-    public static function find($where, $params = array())
+    public static function find($where, $params = array(), $cache = false)
     {
+        // Look up the cache.
+        
+        if ($cache && self::$_cache)
+        {
+            $cache_key = '_BEAVER::' . get_called_class() . ':' . sha1($where . "\n" . serialize($id));
+            $cache_result = self::$_cache->get($cache_key);
+            if ($cache_result !== false) return $cache_result;
+        }
+        
+        // Find some objects.
+        
         $ps = self::$_db->prepare('SELECT * FROM ' . static::$_table . ' ' . $where);
         $ps->execute((array)$params);
         
-        $return = array();
+        $result = array();
         while ($object = $ps->fetchObject(get_called_class(), array(false)))
         {
-            $return[] = $object;
+            $result[] = $object;
         }
-        return $return;
+        return $result;
+        
+        // Store in cache.
+        
+        if ($cache && self::$_cache) self::$_cache->set($cache_key, $result, (int)$cache);
+        return $result;
     }
     
     // Various search methods.
