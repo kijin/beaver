@@ -182,9 +182,14 @@ You can also sort the results by another column:
 
     $objects = User::find_by_age(30, 'name+');
     $objects = User::find_by_age(30, 'karma_points-');
+    $objects = User::find_by_age(30, 'name+', 20);
+    $objects = User::find_by_age(30, 'name+', 20, 40);
 
 The first example above returns all users whose age is 30, sorted by name in ascending order.
 The second example returns all users whose age is 30, sorted by karma points in descending order.
+The third example is the same as the first example, but only returns the first 20 results.
+The fourth example also returns only 20 results, but skips the first 40.
+This is very useful when you want to use pagination.
 
 #### Custom Queries
 
@@ -223,8 +228,8 @@ because otherwise Beaver can't distinguish the caching argument from all the oth
 Likewise, when calling `find_by_<PROPERTY>` or `select()` with a caching argument,
 make sure you don't skip optional arguments, such as sorting, limit/offset, or parameters.
 
-    $objects = User::find_by_age(30, 'name+', 300);  // OK
-    $objects = User::find_by_age(30, 300);           // WRONG
+    $objects = User::find_by_age(30, 'name+', 20, null, 300);  // OK
+    $objects = User::find_by_age(30, 300);                     // WRONG
 
     $objects = User::select('WHERE group_id IS NULL', array(), 300);  // OK
     $objects = User::select('WHERE group_id IS NULL', 300);           // WRONG

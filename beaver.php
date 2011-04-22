@@ -274,12 +274,12 @@ class Base
                 throw new BadMethodCallException('Property not found: ' . $order_field);
             }
         }
-        if (isset($args[2]))  // Limit
+        if (isset($args[2]) && $args[2] !== null)  // Limit
         {
             $limit = (int)$args[2];
             $offset = 0;
         }
-        if (isset($args[3]))  // Offset
+        if (isset($args[3]) && $args[3] !== null)  // Offset
         {
             $offset = (int)$args[3];
         }
