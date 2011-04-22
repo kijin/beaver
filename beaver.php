@@ -52,7 +52,7 @@ class Base
     
     // Call this method to inject a PDO object (or equivalent) to the ORM.
     
-    public static function set_database($db)
+    final public static function set_database($db)
     {
         self::$_db = $db;
         if ($db instanceof \PDO && $db->getAttribute(\PDO::ATTR_DRIVER_NAME) === 'pgsql')
@@ -63,21 +63,14 @@ class Base
     
     // Call this method to inject a Memcached object (or equivalent) to the ORM.
     
-    public static function set_cache($cache)
+    final public static function set_cache($cache)
     {
         self::$_cache = $cache;
     }
     
-    // Constructor.
+    // Flag this object as saved. (This flag is used internally by the ORM.)
     
-    public function __construct()
-    {
-    
-    }
-    
-    // Flag as saved. (This flag is used internally by the ORM.)
-    
-    public function _flag_as_saved()
+    final public function _flag_as_saved()
     {
         $this->_is_unsaved_object = false;
         return $this;
@@ -163,44 +156,39 @@ class Base
         $this->_is_unsaved_object = true;
     }
     
-    // Get method.
+    // Fetch a single object, identified by its ID.
     
     public static function get($id, $cache = false)
+    {
+        $result = static::select('WHERE ' . static::$_pk . ' = ?', array($id), $cache);
+        return count($result) ? $result[0] : null;
+    }
+    
+    // Fetch an array of objects, identified by their IDs.
+    
+    public static function get_array($ids, $cache = false)
     {
         // Look up the cache.
         
         if ($cache && self::$_cache)
         {
-            $cache_key = '_BEAVER::' . get_called_class() . ':' . (is_array($id) ? sha1(serialize($id)) : $id);
+            $cache_key = '_BEAVER::' . get_called_class() . ':' . sha1(serialize($ids = (array)$ids));
             $cache_result = self::$_cache->get($cache_key);
-            if ($cache_result !== false) return $cache_result;
+            if ($cache_result !== false && $cache_result !== null) return $cache_result;
         }
         
-        // If fetching a single object.
+        // Find some objects, preserving the order in the input array.
         
-        if (!is_array($id))
+        $query = 'SELECT * FROM ' . static::$_table . ' WHERE ' . static::$_pk . ' IN (';
+        $query .= implode(', ', array_fill(0, count($id), '?')) . ')';
+        $ps = self::$_db->prepare($query);
+        $ps->execute($id);
+        
+        $result = array_combine($id, array_fill(0, count($id), null));
+        $class = get_called_class();
+        while ($object = $ps->fetchObject($class))
         {
-            $ps = self::$_db->prepare('SELECT * FROM ' . static::$_table . ' WHERE ' . static::$_pk . ' = ? LIMIT 1');
-            $ps->execute(array($id));
-            $object = $ps->fetchObject(get_called_class());
-            $result = $object->_flag_as_saved() ?: null;
-        }
-        
-        // If fetching an array of objects.
-        
-        else
-        {
-            $query = 'SELECT * FROM ' . static::$_table . ' WHERE ' . static::$_pk . ' IN (';
-            $query .= implode(', ', array_fill(0, count($id), '?')) . ')';
-            $ps = self::$_db->prepare($query);
-            $ps->execute($id);
-            
-            $result = array_combine($id, array_fill(0, count($id), null));  // Preserve order
-            $class = get_called_class();
-            while ($object = $ps->fetchObject($class))
-            {
-                $result[$object->{static::$_pk}] = $object->_flag_as_saved();
-            }
+            $result[$object->{static::$_pk}] = $object->_flag_as_saved();
         }
         
         // Store in cache.
@@ -217,9 +205,9 @@ class Base
         
         if ($cache && self::$_cache)
         {
-            $cache_key = '_BEAVER::' . get_called_class() . ':' . sha1($where . "\n" . serialize($id));
+            $cache_key = '_BEAVER::' . get_called_class() . ':' . sha1($where . "\n" . serialize($params));
             $cache_result = self::$_cache->get($cache_key);
-            if ($cache_result !== false) return $cache_result;
+            if ($cache_result !== false && $cache_result !== null) return $cache_result;
         }
         
         // Find some objects.
@@ -233,7 +221,6 @@ class Base
         {
             $result[] = $object->_flag_as_saved();
         }
-        return $result;
         
         // Store in cache.
         
