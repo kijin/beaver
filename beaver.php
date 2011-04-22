@@ -263,8 +263,12 @@ class Base
                 throw new BadMethodCallException('Property not found: ' . $order_field);
             }
         }
+        if (isset($args[2]))
+        {
+            $cache = (bool)$args[2];
+        }
         
-        // Find all matching objects.
+        // Return all matching objects.
         
         $query = 'WHERE ' . $field . ' = ?';
         if (isset($order_field))
@@ -273,7 +277,7 @@ class Base
             if (isset($order_sign)) $query .= ' ' . $order_sign;
         }
         
-        return static::select($query, array($value));
+        return static::select($query, array($value), isset($cache) ? $cache : false);
     }
 }
 
