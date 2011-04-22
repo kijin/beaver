@@ -10,7 +10,7 @@
  * @copyright  (c) 2010-2011, Kijin Sung <kijin.sung@gmail.com>
  * @license    LGPL v3 <http://www.gnu.org/copyleft/lesser.html>
  * @link       http://github.com/kijin/beaver
- * @version    0.2
+ * @version    0.2.1
  * 
  * -----------------------------------------------------------------------------
  * 
@@ -254,11 +254,14 @@ class Base
             throw new BadMethodCallException('Property not found: ' . $field);
         }
         
-        // Check arguments.
+        // The first argument is the most important one.
         
         if (!count($args)) throw new BadMethodCallException('Missing arguments');
         $value = $args[0];
-        if (isset($args[1]))
+        
+        // Look for additional arguments.
+        
+        if (isset($args[1]))  // Sort
         {
             $order_field = $args[1];
             if (strlen($order_field) && in_array($order_field[strlen($order_field) - 1], array('+', '-')))
@@ -271,9 +274,18 @@ class Base
                 throw new BadMethodCallException('Property not found: ' . $order_field);
             }
         }
-        if (isset($args[2]))
+        if (isset($args[2]))  // Limit
         {
-            $cache = $args[2];
+            $limit = (int)$args[2];
+            $offset = 0;
+        }
+        if (isset($args[3]))  // Offset
+        {
+            $offset = (int)$args[3];
+        }
+        if (isset($args[4]))  // Cache
+        {
+            $cache = $args[4];
         }
         
         // Return all matching objects.
@@ -283,6 +295,10 @@ class Base
         {
             $query .= ' ORDER BY ' . $order_field;
             if (isset($order_sign)) $query .= ' ' . $order_sign;
+        }
+        if (isset($limit))
+        {
+            $query .= ' LIMIT ' . $limit . ' OFFSET ' . $offset;
         }
         
         return static::select($query, array($value), isset($cache) ? $cache : false);
