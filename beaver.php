@@ -247,37 +247,44 @@ class Base
             throw new BadMethodCallException('Static method not found: ' . $name);
         }
         
-        // Check the search field name.
+        // Check the search field name, including any operators.
         
         $search_field = substr($name, 8);
         if ($search_field !== '' && $search_field[0] === '_')
         {
             throw new BadMethodCallException('Cannot search by non-existent property: ' . $search_field);
         }
-        
-        // Look for comparison operators.
-        
-        if (strlen($search_field) > 4 && in_array($comp = substr($search_field, strlen($search_field) - 4), array('_not', '_gte', '_lte')))
-        {
-            $search_field_no_comp = substr($search_field, 0, strlen($search_field) - 4);
-        }
-        elseif (strlen($search_field) > 3 && in_array($comp = substr($search_field, strlen($search_field) - 3), array('_gt', '_lt', '_in')))
-        {
-            $search_field_no_comp = substr($search_field, 0, strlen($search_field) - 3);
-        }
-        else
+        elseif (property_exists(get_called_class(), $search_field))
         {
             $search_comp = null;
         }
-        
-        // Check if the search field is a valid property.
-        
-        if (isset($search_field_no_comp) && property_exists(get_called_class(), $search_field_no_comp))
+        elseif (strlen($search_field) > 4 && in_array($comp = substr($search_field, strlen($search_field) - 4), array('_gte', '_lte', '_not')))
         {
-            $search_field = $search_field_no_comp;
-            $search_comp = $comp;
+            $search_field_no_comp = rtrim(substr($search_field, 0, strlen($search_field) - 4), '_');
+            if (property_exists(get_called_class(), $search_field_no_comp))
+            {
+                $search_field = $search_field_no_comp;
+                $search_comp = $comp;
+            }
+            else
+            {
+                throw new BadMethodCallException('Cannot search by non-existent property: ' . $search_field);
+            }
         }
-        elseif (!property_exists(get_called_class(), $search_field))
+        elseif (strlen($search_field) > 3 && in_array($comp = substr($search_field, strlen($search_field) - 3), array('_gt', '_lt', '_in')))
+        {
+            $search_field_no_comp = rtrim(substr($search_field, 0, strlen($search_field) - 3), '_');
+            if (property_exists(get_called_class(), $search_field_no_comp))
+            {
+                $search_field = $search_field_no_comp;
+                $search_comp = $comp;
+            }
+            else
+            {
+                throw new BadMethodCallException('Cannot search by non-existent property: ' . $search_field);
+            }
+        }
+        else
         {
             throw new BadMethodCallException('Cannot search by non-existent property: ' . $search_field);
         }
@@ -331,11 +338,11 @@ class Base
         
         switch ($search_comp)
         {
-            case '_not': $query = 'WHERE ' . $search_field . ' != ?'; break;
             case '_gte': $query = 'WHERE ' . $search_field . ' >= ?'; break;
             case '_lte': $query = 'WHERE ' . $search_field . ' <= ?'; break;
             case '_gt': $query = 'WHERE ' . $search_field . ' > ?'; break;
             case '_lt': $query = 'WHERE ' . $search_field . ' < ?'; break;
+            case '_not': $query = 'WHERE ' . $search_field . ' != ?'; break;
             case '_in': $query = 'WHERE ' . $search_field . ' IN (' . implode(', ', array_fill(0, count($search_value), '?')) . ')'; break;
             default: $query = 'WHERE ' . $search_field . ' = ?'; 
         }
