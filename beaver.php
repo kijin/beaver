@@ -296,7 +296,7 @@ class Base
                 }
                 if (!strlen($order_field) || !property_exists(get_called_class(), $order_field) || $order_field[0] === '_')
                 {
-                    throw new BadMethodCallException('Property not found: ' . $order_field);
+                    throw new BadMethodCallException('Cannot order by non-existent property: ' . $order_field);
                 }
                 $order_fields_sql[] = $order_field . ' ' . $order_sign;
             }

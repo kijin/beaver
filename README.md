@@ -174,6 +174,8 @@ If you have a lot of primary keys to look up, you can also pass an array:
     $primary_keys = array($id1, $id2, $id3, $id4 /* ... */ );
     $objects = User::get_array($primary_keys);
 
+### Built-In Searching
+
 Now, this is where it gets fun. If you want to fetch all objects with a certain property, this is what you do:
 
     $objects = User::find_by_age(30);
@@ -190,10 +192,10 @@ You can also sort the results by another column:
 The first example above returns all users whose age is 30, sorted by name in ascending order.
 The second example returns all users whose age is 30, sorted by karma points in descending order.
 The third example is the same as the first example, but only returns the first 20 results.
-
-The fourth example, finally, returns all users whose age is 30,
-sorted by karma points in descending order followed by name in ascending order,
+The fourth example sorts results by karma points in descending order followed by name in ascending order,
 skips the first 40 results, and returns the next 20. This is the kind of thing that you want in pagination.
+
+If the `+` or `-` sign is omitted, ascending order is assumed.
 
 Beaver also supports basic comparison operators when searching.
 For example, the following example returns all users whose age is 30 or greater.
@@ -223,8 +225,7 @@ call `find_by_age__lt()` instead. (Notice the extra underscore that helps disamb
 
 Case sensitivity of string comparisons depends on the type of database and other settings.
 
-
-#### Custom Queries
+#### Custom Searching
 
 Beaver can't do joins, subqueries, or anything else that isn't covered in the examples above.
 But even if Beaver can't write those queries for you, it can make it easier for you
@@ -242,7 +243,7 @@ You can, for example, implement your own `save()` method that performs some chec
 
 The above syntax only works if the query returns individual rows, including the primary key.
 For queries that don't return individual rows (such as anything with a `GROUP BY` clause),
-and all other types of queries, you'll have to talk to the database connection (PDO object) directly.
+and for all non-`SELECT` queries, you'll have to talk to the database connection (PDO object) directly.
 
 Caching
 -------
