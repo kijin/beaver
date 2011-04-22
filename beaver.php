@@ -10,7 +10,7 @@
  * @copyright  (c) 2010-2011, Kijin Sung <kijin.sung@gmail.com>
  * @license    LGPL v3 <http://www.gnu.org/copyleft/lesser.html>
  * @link       http://github.com/kijin/beaver
- * @version    0.2.1
+ * @version    0.2.2
  * 
  * -----------------------------------------------------------------------------
  * 
@@ -242,7 +242,7 @@ class Base
     {
         // Check the method name.
         
-        if (strncmp($name, 'find_by_', 8))
+        if (strlen($name) <= 8 || strncmp($name, 'find_by_', 8))
         {
             throw new BadMethodCallException('Static method not found: ' . $name);
         }
@@ -250,7 +250,9 @@ class Base
         // Check the search field name, including any operators.
         
         $search_field = substr($name, 8);
-        if ($search_field !== '' && $search_field[0] === '_')
+        $comp_regex = '/^((?U).+)__?([gl]te?|x?between|not|in|notin|startswith|endswith|contains|)$/';
+        
+        if ($search_field[0] === '_')
         {
             throw new BadMethodCallException('Cannot search by non-existent property: ' . $search_field);
         }
@@ -258,31 +260,10 @@ class Base
         {
             $search_comp = null;
         }
-        elseif (strlen($search_field) > 4 && in_array($comp = substr($search_field, strlen($search_field) - 4), array('_gte', '_lte', '_not')))
+        elseif (preg_match($comp_regex, $search_field, $matches) && property_exists(get_called_class(), $matches[1]))
         {
-            $search_field_no_comp = rtrim(substr($search_field, 0, strlen($search_field) - 4), '_');
-            if (property_exists(get_called_class(), $search_field_no_comp))
-            {
-                $search_field = $search_field_no_comp;
-                $search_comp = $comp;
-            }
-            else
-            {
-                throw new BadMethodCallException('Cannot search by non-existent property: ' . $search_field);
-            }
-        }
-        elseif (strlen($search_field) > 3 && in_array($comp = substr($search_field, strlen($search_field) - 3), array('_gt', '_lt', '_in')))
-        {
-            $search_field_no_comp = rtrim(substr($search_field, 0, strlen($search_field) - 3), '_');
-            if (property_exists(get_called_class(), $search_field_no_comp))
-            {
-                $search_field = $search_field_no_comp;
-                $search_comp = $comp;
-            }
-            else
-            {
-                throw new BadMethodCallException('Cannot search by non-existent property: ' . $search_field);
-            }
+            $search_field = $matches[1];
+            $search_comp = $matches[2];
         }
         else
         {
@@ -334,17 +315,36 @@ class Base
             $cache = $args[4];
         }
         
-        // Build the querystring.
+        // Build the WHERE clause.
         
         switch ($search_comp)
         {
-            case '_gte': $query = 'WHERE ' . $search_field . ' >= ?'; break;
-            case '_lte': $query = 'WHERE ' . $search_field . ' <= ?'; break;
-            case '_gt': $query = 'WHERE ' . $search_field . ' > ?'; break;
-            case '_lt': $query = 'WHERE ' . $search_field . ' < ?'; break;
-            case '_not': $query = 'WHERE ' . $search_field . ' != ?'; break;
-            case '_in': $query = 'WHERE ' . $search_field . ' IN (' . implode(', ', array_fill(0, count($search_value), '?')) . ')'; break;
-            default: $query = 'WHERE ' . $search_field . ' = ?'; 
+            case null: $query = 'WHERE ' . $search_field . ' = ?'; break;
+            case 'gte': $query = 'WHERE ' . $search_field . ' >= ?'; break;
+            case 'lte': $query = 'WHERE ' . $search_field . ' <= ?'; break;
+            case 'gt': $query = 'WHERE ' . $search_field . ' > ?'; break;
+            case 'lt': $query = 'WHERE ' . $search_field . ' < ?'; break;
+            case 'between': $query = 'WHERE ' . $search_field . ' BETWEEN ? AND ?'; break;
+            case 'xbetween': $query = 'WHERE ' . $search_field . ' > ? AND ' . $search_field . ' < ?'; break;
+            case 'not': $query = 'WHERE ' . $search_field . ' != ?'; break;
+            case 'in': $query = 'WHERE ' . $search_field . ' IN (' . implode(', ', array_fill(0, count($search_value), '?')) . ')'; break;
+            case 'notin': $query = 'WHERE ' . $search_field . ' NOT IN (' . implode(', ', array_fill(0, count($search_value), '?')) . ')'; break;
+            case 'startswith':
+                $query = 'WHERE ' . $search_field . ' LIKE ? ESCAPE ?';
+                $search_value[0] = str_replace(array('\\', '%', '_'), array('\\\\', '\\%', '\\_'), $search_value[0]) . '%';
+                $search_value[1] = '\\';
+                break;
+            case 'endswith':
+                $query = 'WHERE ' . $search_field . ' LIKE ? ESCAPE ?';
+                $search_value[0] = '%' . str_replace(array('\\', '%', '_'), array('\\\\', '\\%', '\\_'), $search_value[0]);
+                $search_value[1] = '\\';
+                break;
+            case 'contains':
+                $query = 'WHERE ' . $search_field . ' LIKE ? ESCAPE ?';
+                $search_value[0] = '%' . str_replace(array('\\', '%', '_'), array('\\\\', '\\%', '\\_'), $search_value[0]) . '%';
+                $search_value[1] = '\\';
+                break;
+            default: $query = 'WHERE ' . $search_field . ' = ?';
         }
         
         if (isset($order_fields_sql) && count($order_fields_sql))
