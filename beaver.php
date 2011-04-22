@@ -168,23 +168,31 @@ class Base
     
     public static function get_array($ids, $cache = false)
     {
+        // This method can also be called with an arbitrary number of arguments instead of an array.
+        
+        if (!is_array($ids))
+        {
+            $ids = func_get_args();
+            $cache = false;
+        }
+        
         // Look up the cache.
         
         if ($cache && self::$_cache)
         {
             $cache_key = '_BEAVER::' . get_called_class() . ':' . sha1(serialize($ids = (array)$ids));
             $cache_result = self::$_cache->get($cache_key);
-            if ($cache_result !== false && $cache_result !== null) return $cache_result;
+            if ($cache_result !== false && $cache_result !== null) return unserialize($cache_result);
         }
         
         // Find some objects, preserving the order in the input array.
         
         $query = 'SELECT * FROM ' . static::$_table . ' WHERE ' . static::$_pk . ' IN (';
-        $query .= implode(', ', array_fill(0, count($id), '?')) . ')';
+        $query .= implode(', ', array_fill(0, count($ids), '?')) . ')';
         $ps = self::$_db->prepare($query);
-        $ps->execute($id);
+        $ps->execute($ids);
         
-        $result = array_combine($id, array_fill(0, count($id), null));
+        $result = array_combine($ids, array_fill(0, count($ids), null));
         $class = get_called_class();
         while ($object = $ps->fetchObject($class))
         {
@@ -193,7 +201,7 @@ class Base
         
         // Store in cache.
         
-        if ($cache && self::$_cache) self::$_cache->set($cache_key, $result, (int)$cache);
+        if ($cache && self::$_cache) self::$_cache->set($cache_key, serialize($result), (int)$cache);
         return $result;
     }
     
@@ -207,7 +215,7 @@ class Base
         {
             $cache_key = '_BEAVER::' . get_called_class() . ':' . sha1($where . "\n" . serialize($params));
             $cache_result = self::$_cache->get($cache_key);
-            if ($cache_result !== false && $cache_result !== null) return $cache_result;
+            if ($cache_result !== false && $cache_result !== null) return unserialize($cache_result);
         }
         
         // Find some objects.
@@ -224,7 +232,7 @@ class Base
         
         // Store in cache.
         
-        if ($cache && self::$_cache) self::$_cache->set($cache_key, $result, (int)$cache);
+        if ($cache && self::$_cache) self::$_cache->set($cache_key, serialize($result), (int)$cache);
         return $result;
     }
     
@@ -265,7 +273,7 @@ class Base
         }
         if (isset($args[2]))
         {
-            $cache = (bool)$args[2];
+            $cache = $args[2];
         }
         
         // Return all matching objects.
