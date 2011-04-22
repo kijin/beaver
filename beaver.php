@@ -10,7 +10,7 @@
  * @copyright  (c) 2010-2011, Kijin Sung <kijin.sung@gmail.com>
  * @license    LGPL v3 <http://www.gnu.org/copyleft/lesser.html>
  * @link       http://github.com/kijin/beaver
- * @version    0.1.2
+ * @version    0.2
  * 
  * -----------------------------------------------------------------------------
  * 
@@ -188,7 +188,8 @@ class Base
             $ps->execute($id);
             
             $result = array_combine($id, array_fill(0, count($id), null));  // Preserve order
-            while ($object = $ps->fetchObject(get_called_class(), array(false)))
+            $class = get_called_class();
+            while ($object = $ps->fetchObject($class, array(false)))
             {
                 $result[$object->{static::$_pk}] = $object;
             }
@@ -200,9 +201,9 @@ class Base
         return $result;
     }
     
-    // Generic search method.
+    // Generic select method.
     
-    public static function find($where, $params = array(), $cache = false)
+    public static function select($where, $params = array(), $cache = false)
     {
         // Look up the cache.
         
@@ -219,7 +220,8 @@ class Base
         $ps->execute((array)$params);
         
         $result = array();
-        while ($object = $ps->fetchObject(get_called_class(), array(false)))
+        $class = get_called_class();
+        while ($object = $ps->fetchObject($class, array(false)))
         {
             $result[] = $object;
         }
@@ -231,7 +233,7 @@ class Base
         return $result;
     }
     
-    // Various search methods.
+    // Other search methods.
     
     public static function __callStatic($name, $args)
     {
@@ -269,22 +271,14 @@ class Base
         
         // Find all matching objects.
         
-        $query = 'SELECT * FROM ' . static::$_table . ' WHERE ' . $field . ' = ?';
+        $query = 'WHERE ' . $field . ' = ?';
         if (isset($order_field))
         {
             $query .= ' ORDER BY ' . $order_field;
             if (isset($order_sign)) $query .= ' ' . $order_sign;
         }
         
-        $ps = self::$_db->prepare($query);
-        $ps->execute(array($value));
-        
-        $return = array();
-        while ($object = $ps->fetchObject(get_called_class(), array(false)))
-        {
-            $return[] = $object;
-        }
-        return $return;
+        return static::select($query, array($value));
     }
 }
 
