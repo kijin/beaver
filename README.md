@@ -8,7 +8,7 @@ and also provides basic search and caching functions.
 
 Beaver is designed to be used with [PDO](http://www.php.net/manual/en/book.pdo.php).
 However, since Beaver uses dependency injection for database interactions,
-any class that behaves like PDO can be used in its place.
+any object that behaves like PDO (such as a custom wrapper for PDO) can be used in its place.
 Beaver currently supports MySQL, PostgreSQL, and SQLite.
 Other relational databases have not been tested.
 
@@ -18,10 +18,9 @@ Any class which exposes the following methods is compatible with Beaver:
   * get($key, $value)
   * set($key, $value, $ttl)
 
-[Memcache](http://www.php.net/manual/en/book.memcache.php),
-[Memcached](http://www.php.net/manual/en/book.memcached.php),
-and [PHPRedis](http://github.com/nicolasff/phpredis) are all compatible out of the box.
-APC can be used with Beaver through the [OOAPC](http://github.com/kijin/ooapc) class.
+[Memcached](http://www.php.net/manual/en/book.memcached.php) and [PHPRedis](http://github.com/nicolasff/phpredis) work with Beaver out of the box.
+APC can be made compatible with Beaver by using the author's [OOAPC](http://github.com/kijin/ooapc) class.
+The older [Memcache](http://www.php.net/manual/en/book.memcache.php) extension is incompatible because it requires an additional argument in `set()`.
 
 Beaver released under the [GNU Lesser General Public License, version 3](http://www.gnu.org/copyleft/lesser.html).
 
@@ -178,19 +177,19 @@ If you have a lot of primary keys to look up, you can also pass an array:
 
 Now, this is where it gets fun. If you want to fetch all objects with a certain property, this is what you do:
 
-    $objects = User::find_by_age(30);
+    $objects = User::find_by_group_id(42);
 
 This works with all properties. Just call `find_by_<PROPERTY>` and you're done.
 
 You can also sort the results by another column:
 
-    $objects = User::find_by_age(30, 'name+');
-    $objects = User::find_by_age(30, 'karma_points-');
-    $objects = User::find_by_age(30, 'name+', 20);
-    $objects = User::find_by_age(30, 'karma_points-,name+', 20, 40);
+    $objects = User::find_by_group_id(42, 'name+');
+    $objects = User::find_by_group_id(42, 'karma_points-');
+    $objects = User::find_by_group_id(42, 'name+', 20);
+    $objects = User::find_by_group_id(42, 'karma_points-,name+', 20, 40);
 
-The first example above returns all users whose age is 30, sorted by name in ascending order.
-The second example returns all users whose age is 30, sorted by karma points in descending order.
+The first example above returns all users in group #42, sorted by name in ascending order.
+The second example returns all users in the same group, sorted by karma points in descending order.
 The third example is the same as the first example, but only returns the first 20 results.
 The fourth example sorts results by karma points in descending order followed by name in ascending order,
 skips the first 40 results, and returns the next 20. This is the kind of thing that you want in pagination.
@@ -202,7 +201,15 @@ For example, the following example returns all users whose age is 30 or greater.
 
     $objects = User::find_by_age_gte(30, 'name+');
 
-There are 12 operators that you can use.
+The next example returns the first 50 users whose age is between 30 and 40.
+
+    $objects = User::find_by_age_between(array(30, 40), 'id+', 50);
+
+The next example returns the second page of the list of users whose name starts with "John" (20 per page, ordered by age).
+
+    $objects = User::find_by_name_startswith('John', 'age+', 20, 20);
+
+In total, Beaver supports 12 operators for searching.
 
   * `_gte` matches values that are greater than or equal to the argument.
   * `_lte` matches values that are less than or equal to the argument.
@@ -223,6 +230,9 @@ as simple matches on `age_lt`, rather than as less-than matches on `age`.
 If you find yourself in this rare situation and you need to do less-than matches on `age`,
 call `find_by_age__lt()` instead. (Notice the extra underscore that helps disambiguate your query.)
 
+Searching may be slow if the columns you're using for searching and sorting are not indexed.
+Also, `_endswith` and `_contains` are always slow, so avoid these if you care about performance.
+
 Case sensitivity of string comparisons depends on the type of database and other settings.
 
 ### Custom Searching
@@ -231,10 +241,10 @@ Beaver can't do joins, subqueries, or anything else that isn't covered in the ex
 But even if Beaver can't write those queries for you, it can make it easier for you
 to make various `SELECT` queries in a convenient and secure way.
 
-    $params = array($email, hash($password.$salt));
-    $objects = User::select('WHERE email = ? AND password = ?', $params);
+    $objects = User::select('WHERE group_id IN (SELECT id FROM groups WHERE name = ?)', $param);
 
-Passing parameters as a separate array is a very good way to prevent SQL injection vulnerabilities.
+The second argument should be an array of parameters, corresponding to placeholders in the query string.
+Passing parameters separately is a very good way to prevent SQL injection vulnerabilities.
 If you don't have any parameters to pass, you can skip the second argument.
 
 Queries such as the above can be encapsulated in a method of the `User` class.
@@ -261,9 +271,10 @@ because otherwise Beaver can't distinguish the caching argument from all the oth
 
 Likewise, when calling `find_by_<PROPERTY>` or `select()` with a caching argument,
 make sure you don't skip optional arguments, such as sorting, limit/offset, or parameters.
+You can use `null` to skip the limit/offset arguments, and `array()` to indicate an empty parameter list.
 
-    $objects = User::find_by_age(30, 'name+', 20, null, 300);  // OK
-    $objects = User::find_by_age(30, 300);                     // WRONG
+    $objects = User::find_by_age_lte(30, 'name+', null, null, 300);  // OK
+    $objects = User::find_by_age_lte(30, 300);                       // WRONG
 
     $objects = User::select('WHERE group_id IS NULL', array(), 300);  // OK
     $objects = User::select('WHERE group_id IS NULL', 300);           // WRONG
