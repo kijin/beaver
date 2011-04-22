@@ -248,30 +248,41 @@ class Base
             throw new BadMethodCallException('Static method not found: ' . $name);
         }
         
-        $field = substr($name, 8);
-        if (!$field || !property_exists(get_called_class(), $field) || $field[0] === '_')
+        $search_field = substr($name, 8);
+        if (!$search_field || !property_exists(get_called_class(), $search_field) || $search_field[0] === '_')
         {
-            throw new BadMethodCallException('Property not found: ' . $field);
+            throw new BadMethodCallException('Property not found: ' . $search_field);
         }
         
         // The first argument is the most important one.
         
         if (!count($args)) throw new BadMethodCallException('Missing arguments');
-        $value = $args[0];
+        $search_value = $args[0];
         
         // Look for additional arguments.
         
         if (isset($args[1]))  // Sort
         {
-            $order_field = $args[1];
-            if (strlen($order_field) && in_array($order_field[strlen($order_field) - 1], array('+', '-')))
+            $order_fields = explode(',', $args[1]);
+            $order_fields_sql = array();
+            foreach ($order_fields as $order_field)
             {
-                $order_sign = ($order_field[strlen($order_field) - 1] === '+') ? 'ASC' : 'DESC';
-                $order_field = substr($order_field, 0, strlen($order_field) - 1);
-            }
-            if (!$order_field || !property_exists(get_called_class(), $order_field) || $order_field[0] === '_')
-            {
-                throw new BadMethodCallException('Property not found: ' . $order_field);
+                $order_field = trim($order_field);
+                if (!$order_field) continue;
+                if (in_array($order_sign = $order_field[strlen($order_field) - 1], array('+', '-')))
+                {
+                    $order_sign = ($order_sign === '-') ? 'DESC' : 'ASC';
+                    $order_field = substr($order_field, 0, strlen($order_field) - 1);
+                }
+                else
+                {
+                    $order_sign = 'ASC';
+                }
+                if (!strlen($order_field) || !property_exists(get_called_class(), $order_field) || $order_field[0] === '_')
+                {
+                    throw new BadMethodCallException('Property not found: ' . $order_field);
+                }
+                $order_fields_sql[] = $order_field . ' ' . $order_sign;
             }
         }
         if (isset($args[2]) && $args[2] !== null)  // Limit
@@ -290,18 +301,17 @@ class Base
         
         // Return all matching objects.
         
-        $query = 'WHERE ' . $field . ' = ?';
-        if (isset($order_field))
+        $query = 'WHERE ' . $search_field . ' = ?';
+        if (isset($order_fields_sql) && count($order_fields_sql))
         {
-            $query .= ' ORDER BY ' . $order_field;
-            if (isset($order_sign)) $query .= ' ' . $order_sign;
+            $query .= ' ORDER BY ' . implode(', ', $order_fields_sql);
         }
         if (isset($limit))
         {
             $query .= ' LIMIT ' . $limit . ' OFFSET ' . $offset;
         }
         
-        return static::select($query, array($value), isset($cache) ? $cache : false);
+        return static::select($query, array($search_value), isset($cache) ? $cache : false);
     }
 }
 
