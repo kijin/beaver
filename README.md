@@ -178,18 +178,42 @@ Now, this is where it gets fun. If you want to fetch all objects with a certain 
     $objects = User::find_by_age(30);
 
 This works with all properties. Just call `find_by_<PROPERTY>` and you're done.
+
 You can also sort the results by another column:
 
     $objects = User::find_by_age(30, 'name+');
     $objects = User::find_by_age(30, 'karma_points-');
     $objects = User::find_by_age(30, 'name+', 20);
-    $objects = User::find_by_age(30, 'name+', 20, 40);
+    $objects = User::find_by_age(30, 'karma_points-,name+', 20, 40);
 
 The first example above returns all users whose age is 30, sorted by name in ascending order.
 The second example returns all users whose age is 30, sorted by karma points in descending order.
 The third example is the same as the first example, but only returns the first 20 results.
-The fourth example also returns only 20 results, but skips the first 40.
-This is very useful when you want to use pagination.
+
+The fourth example, finally, returns all users whose age is 30,
+sorted by karma points in descending order followed by name in ascending order,
+skips the first 40 results, and returns the next 20. This is the kind of thing that you want in pagination.
+
+Beaver also supports basic comparison operators when searching.
+For example, the following example returns all users whose age is 30 or greater.
+
+    $objects = User::find_by_age_gte(30, 'name+');
+
+There are 6 operators that you can use. The first four are meant to be used with numeric values only.
+
+  * `_gte` matches properties that are greater than or equal to the argument.
+  * `_lte` matches properties that are less than or equal to the argument.
+  * `_gt` matches properties that are greater than, but not equal to, the argument.
+  * `_lt` matches properties that are less than, but not equal to, the argument.
+  * `_not` matches all properties _except_ the argument.
+  * `_in` matches any property that is listed in an array. The argument must be an array.
+
+Note that operators are evaluated only if the full method name does not match a property name.
+So if you have two properties named `age` and `age_lt`, all calls to `find_by_age_lt()` will be interpreted
+as simple matches on `age_lt`, rather than as less-than matches on `age`.
+If you find yourself in this rare situation and you need to do less-than matches on `age`,
+call `find_by_age__lt()` instead. (Notice the extra underscore that helps disambiguate your query.)
+
 
 #### Custom Queries
 
