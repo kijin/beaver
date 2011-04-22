@@ -9,7 +9,7 @@ and also provides basic search and caching functions.
 Beaver is designed to be used with [PDO](http://www.php.net/manual/en/book.pdo.php).
 However, since Beaver uses dependency injection for database interactions,
 any class that behaves like PDO can be used in its place.
-Currently, Beaver supports MySQL, PostgreSQL, and SQLite.
+Beaver currently supports MySQL, PostgreSQL, and SQLite.
 Other relational databases have not been tested.
 
 Caching also uses dependency injection.
@@ -37,15 +37,16 @@ This guide assumes that you have a database table as defined below:
 
     CREATE TABLE users
     (
-        id INTEGER PRIMARY KEY AUTO_INCREMENT,
-        name VARCHAR(80) NOT NULL,
-        email VARCHAR(80) NOT NULL,
-        password VARCHAR(80) NOT NULL,
-        age INTEGER NOT NULL,
-        karma_points INTEGER NOT NULL DEFAULT 0
+        id           INTEGER      PRIMARY KEY AUTO_INCREMENT,
+        name         VARCHAR(128) NOT NULL,
+        email        VARCHAR(128) NOT NULL,
+        password     VARCHAR(128) NOT NULL,
+        age          INTEGER      NOT NULL,
+        karma_points INTEGER      NOT NULL DEFAULT 0,
+        group_id     INTEGER
     );
 
-Now you need to define the corresponding class.
+Now you need to define the corresponding class in PHP.
 It's your job to update this class if you change your database schema,
 because Beaver is too lightweight to handle that for you.
 
@@ -59,23 +60,13 @@ because Beaver is too lightweight to handle that for you.
         public $password;
         public $age;
         public $karma_points = 0;
+        public $group_id;
     }
 
 `$_table` is required, because Beaver doesn't do inflections automatically.
-But this also means that you can point your classes at any table or view you want.
+You can point your classes at any table or view you want.
 
-`$_pk` defaults to `id`, so you only need to override it
-if you want to use a column other than `id` as your primary key.
-
-Some notes about properties and database columns:
-
-If you manually set the `id` property, or any other property marked as the primary key,
-Beaver will try to use that value as the primary key of the new row.
-On the other hand, if you don't set it (and therefore leave it `null`),
-Beaver will try to insert a new row without a primary key.
-This is recommended if your primary key automatically increments, as primary keys usually do.
-In that case, the `id` property will only become accessible
-after you have saved the object (by calling `save()`) for the first time.
+`$_pk` defaults to `id`, so you only need to override it if you want to use a column other than `id` as your primary key.
 
 Beaver will treat all properties, both public and protected, as names of database columns.
 This will cause errors if you define properties that don't exist in the database.
@@ -110,9 +101,18 @@ Well, how else did you think it would work?
     $obj = new User;
     $obj->name = 'John Doe';
     $obj->email = 'john_doe@example.com';
-    $obj->password = hash('sha512', $password.$salt);
+    $obj->password = hash($password.$salt);
     $obj->age = 30;
     $obj->save();
+
+Usually you would skip the primary key (`id` property) when assigning values to a new object.
+Primary key are usually set to `AUTO_INCREMENT` or equivalent, in which case they are assigned by the database server.
+But this means that the primary key (`id` property) will remain `null` until you save the object for the first time.
+So, be careful not to refer to an object's primary key before it is saved.
+
+If your table has a primary key that does not auto-increment, you may have to set it manually.
+In that case, it's OK to assign whatever you want to the `id` property manually.
+Beaver will try to honor your choices, while any mistakes will be caught by the database server.
 
 ### Modifying Objects (UPDATE)
 
@@ -126,31 +126,34 @@ And here's the second way, which may give you better performance in some cases:
 
     $obj->save(array('name' => 'John Williams', 'email' => 'new_email@example.com'));
 
-The difference is that the first method makes Beaver save every property again,
-because Beaver cannot detect which properties have changed and which have not.
-The second method only saves properties that you specify in the array.
+When using the first method, Beaver saves every property again, because it can't detect which properties have changed.
+When using the second method, only those properties that you specify in the array are updated.
 
 ### Deleting Objects (DELETE)
 
-If you want to delete an object:
+Here's how you delete an object:
 
     $obj->delete();
 
 Note that deleted objects can be re-inserted by calling `save()` again.
 
+Beaver currently can't delete more than one object at the same time.
+If you need to delete many objects at the same time, write your own SQL query --
+or better yet, see if you can use foreign keys to achieve the same effect without writing any additional queries.
+
 ### Finding Objects (SELECT)
 
-Beaver provides several different ways to find objects that have been previously saved.
+Beaver provides several different ways to retrieve objects that have been previously saved.
 
-If you know the primary key of the object you're looking for:
+If you know the primary key of the object you're looking for, this is by far the simplest method:
 
     $obj = User::get($id);
     echo $obj->name;
     echo $obj->email;
 
 Note that `get()` will return `null` if the primary key cannot be found.
-If you try to grab properties without first checking that it's not `null`,
-PHP will slap you with a "fatal error".
+If you try to grab properties when it's `null`, PHP will slap you with a "fatal error".
+So you'll need to add some checks before you take your app anywhere near production.
 
 If you want to fetch multiple objects at once, all by primary key:
 
@@ -170,7 +173,7 @@ If you have a lot of primary keys to look up, you can also pass an array:
     $primary_keys = array($id1, $id2, $id3, $id4 /* ... */ );
     $objects = User::get_array($primary_keys);
 
-If you want to fetch all objects with a certain property:
+Now, this is where it gets fun. If you want to fetch all objects with a certain property, this is what you do:
 
     $objects = User::find_by_age(30);
 
@@ -185,11 +188,11 @@ The second example returns all users whose age is 30, sorted by karma points in 
 
 #### Custom Queries
 
-Beaver can't do joins, subqueries, limit/offset clauses, or anything else that isn't covered above.
+Beaver can't do joins, subqueries, or anything else that isn't covered in the examples above.
 But even if Beaver can't write those queries for you, it can make it easier for you
 to make various `SELECT` queries in a convenient and secure way.
 
-    $params = array($email, hash('sha512', $password.$salt));
+    $params = array($email, hash($password.$salt));
     $objects = User::select('WHERE email = ? AND password = ?', $params);
 
 Passing parameters as a separate array is a very good way to prevent SQL injection vulnerabilities.
@@ -218,10 +221,10 @@ because otherwise Beaver can't distinguish the caching argument from all the oth
     $objects = User::get_array($primary_keys, 300);
 
 Likewise, when calling `find_by_<PROPERTY>` or `select()` with a caching argument,
-make sure you don't skip optional arguments, such as sorting or parameters.
+make sure you don't skip optional arguments, such as sorting, limit/offset, or parameters.
 
     $objects = User::find_by_age(30, 'name+', 300);  // OK
     $objects = User::find_by_age(30, 300);           // WRONG
 
-    $objects = User::select('WHERE column_name IS NULL', array(), 300);  // OK
-    $objects = User::select('WHERE column_name IS NULL', 300);           // WRONG
+    $objects = User::select('WHERE group_id IS NULL', array(), 300);  // OK
+    $objects = User::select('WHERE group_id IS NULL', 300);           // WRONG
