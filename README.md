@@ -29,8 +29,24 @@ Beaver released under the [GNU Lesser General Public License, version 3](http://
 User Guide
 ==========
 
-Definition
-----------
+Configuration
+-------------
+
+Beaver doesn't manage database connections for you.
+So you connect to the database first, and then inject the PDO object into Beaver.
+
+    $pdo = new PDO('mysql:host=localhost;dbname=test', 'username', 'password');
+    Beaver\Base::set_database($pdo);
+
+Now, do the same for the cache connection.
+This is optional. Beaver also works perfectly fine without caching.
+
+    $cache = new Memcached;
+    $cache->addServer('127.0.0.1', 11211);
+    Beaver\Base::set_cache($cache);
+
+Data Definition
+---------------
 
 Beaver doesn't create tables for you, so you need to create them yourself.
 This guide assumes that you have a database table as defined below:
@@ -63,33 +79,18 @@ because Beaver is too lightweight to handle that for you.
         public $group_id;
     }
 
-`$_table` is required, because Beaver doesn't do inflections automatically.
+`protected static $_table` is required, because Beaver doesn't do inflections automatically.
 You can point your classes at any table or view you want.
 
-`$_pk` defaults to `id`, so you only need to override it if you want to use a column other than `id` as your primary key.
+`protected static $_pk` is optional. It defaults to `id`, so you only need to override it
+if you want to use a column other than `id` as your primary key.
+
+All other properties should mirror database columns. You may specify default values.
 
 Beaver will treat all properties, both public and protected, as names of database columns.
 This will cause errors if you define properties that don't exist in the database.
 If you need to define additional properties, make them begin with an underscore (`_`).
 Properties that begin with an underscore will be ignored by Beaver.
-
-Configuration
--------------
-
-Beaver doesn't manage database connections for you.
-So you connect to the database first, and then inject the PDO object into Beaver.
-
-    $pdo = new PDO('mysql:host=localhost;dbname=test', 'username', 'password');
-    Beaver\Base::set_database($pdo);
-
-Now, do the same for the cache connection.
-This is optional. Beaver also works perfectly fine without caching.
-
-    $cache = new Memcached;
-    $cache->addServer('127.0.0.1', 11211);
-    Beaver\Base::set_cache($cache);
-
-That's it. There's no other configuration to make.
 
 Everyday Usage
 --------------
@@ -199,20 +200,28 @@ For example, the following example returns all users whose age is 30 or greater.
 
     $objects = User::find_by_age_gte(30, 'name+');
 
-There are 6 operators that you can use. The first four are meant to be used with numeric values only.
+There are 12 operators that you can use.
 
-  * `_gte` matches properties that are greater than or equal to the argument.
-  * `_lte` matches properties that are less than or equal to the argument.
-  * `_gt` matches properties that are greater than, but not equal to, the argument.
-  * `_lt` matches properties that are less than, but not equal to, the argument.
-  * `_not` matches all properties _except_ the argument.
-  * `_in` matches any property that is listed in an array. The argument must be an array.
+  * `_gte` matches values that are greater than or equal to the argument.
+  * `_lte` matches values that are less than or equal to the argument.
+  * `_gt` matches values that are greater than, but not equal to, the argument.
+  * `_lt` matches values that are less than, but not equal to, the argument.
+  * `_between` matches values that are between two values, including the endpoints. _The argument must be an array._
+  * `_xbetween` matches values that are between two values, excluding the endpoints. _The argument must be an array._
+  * `_not` matches all values _except_ the argument.
+  * `_in` matches any value that is listed in the argument. _The argument must be an array._
+  * `_notin` matches any value that is not listed in the argument. _The argument must be an array._
+  * `_startswith` matches all strings that start with the argument.
+  * `_endswith` matches all strings that end with the argument.
+  * `_contains` matches all strings that contains the argument.
 
 Note that operators are evaluated only if the full method name does not match a property name.
 So if you have two properties named `age` and `age_lt`, all calls to `find_by_age_lt()` will be interpreted
 as simple matches on `age_lt`, rather than as less-than matches on `age`.
 If you find yourself in this rare situation and you need to do less-than matches on `age`,
 call `find_by_age__lt()` instead. (Notice the extra underscore that helps disambiguate your query.)
+
+Case sensitivity of string comparisons depends on the type of database and other settings.
 
 
 #### Custom Queries
