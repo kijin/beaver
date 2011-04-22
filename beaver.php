@@ -240,24 +240,52 @@ class Base
     
     public static function __callStatic($name, $args)
     {
-        // Check method name.
+        // Check the method name.
         
-        $name = strtolower($name);
         if (strncmp($name, 'find_by_', 8))
         {
             throw new BadMethodCallException('Static method not found: ' . $name);
         }
         
+        // Check the search field name.
+        
         $search_field = substr($name, 8);
-        if (!$search_field || !property_exists(get_called_class(), $search_field) || $search_field[0] === '_')
+        if ($search_field !== '' && $search_field[0] === '_')
         {
-            throw new BadMethodCallException('Property not found: ' . $search_field);
+            throw new BadMethodCallException('Cannot search by non-existent property: ' . $search_field);
+        }
+        
+        // Look for comparison operators.
+        
+        if (strlen($search_field) > 4 && in_array($comp = substr($search_field, strlen($search_field) - 4), array('_not', '_gte', '_lte')))
+        {
+            $search_field_no_comp = substr($search_field, 0, strlen($search_field) - 4);
+        }
+        elseif (strlen($search_field) > 3 && in_array($comp = substr($search_field, strlen($search_field) - 3), array('_gt', '_lt', '_in')))
+        {
+            $search_field_no_comp = substr($search_field, 0, strlen($search_field) - 3);
+        }
+        else
+        {
+            $search_comp = null;
+        }
+        
+        // Check if the search field is a valid property.
+        
+        if (isset($search_field_no_comp) && property_exists(get_called_class(), $search_field_no_comp))
+        {
+            $search_field = $search_field_no_comp;
+            $search_comp = $comp;
+        }
+        elseif (!property_exists(get_called_class(), $search_field))
+        {
+            throw new BadMethodCallException('Cannot search by non-existent property: ' . $search_field);
         }
         
         // The first argument is the most important one.
         
         if (!count($args)) throw new BadMethodCallException('Missing arguments');
-        $search_value = $args[0];
+        $search_value = (array)$args[0];
         
         // Look for additional arguments.
         
@@ -299,19 +327,32 @@ class Base
             $cache = $args[4];
         }
         
-        // Return all matching objects.
+        // Build the querystring.
         
-        $query = 'WHERE ' . $search_field . ' = ?';
+        switch ($search_comp)
+        {
+            case '_not': $query = 'WHERE ' . $search_field . ' != ?'; break;
+            case '_gte': $query = 'WHERE ' . $search_field . ' >= ?'; break;
+            case '_lte': $query = 'WHERE ' . $search_field . ' <= ?'; break;
+            case '_gt': $query = 'WHERE ' . $search_field . ' > ?'; break;
+            case '_lt': $query = 'WHERE ' . $search_field . ' < ?'; break;
+            case '_in': $query = 'WHERE ' . $search_field . ' IN (' . implode(', ', array_fill(0, count($search_value), '?')) . ')'; break;
+            default: $query = 'WHERE ' . $search_field . ' = ?'; 
+        }
+        
         if (isset($order_fields_sql) && count($order_fields_sql))
         {
             $query .= ' ORDER BY ' . implode(', ', $order_fields_sql);
         }
+        
         if (isset($limit))
         {
             $query .= ' LIMIT ' . $limit . ' OFFSET ' . $offset;
         }
         
-        return static::select($query, array($search_value), isset($cache) ? $cache : false);
+        // Return all matching objects.
+        
+        return static::select($query, $search_value, isset($cache) ? $cache : false);
     }
 }
 
