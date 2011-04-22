@@ -43,7 +43,7 @@ class Base
     protected static $_db = null;
     protected static $_db_is_pgsql = false;
     protected static $_cache = null;
-    protected $_is_unsaved_object = false;
+    protected $_is_unsaved_object = true;
     
     // The following properties may be overridden by children.
     
@@ -68,11 +68,19 @@ class Base
         self::$_cache = $cache;
     }
     
-    // Constructor. The optional argument is set to false if it's called by get() or find().
+    // Constructor.
     
-    public function __construct($auto = true)
+    public function __construct()
     {
-        $this->_is_unsaved_object = (bool)$auto;
+    
+    }
+    
+    // Flag as saved. (This flag is used internally by the ORM.)
+    
+    public function _flag_as_saved()
+    {
+        $this->_is_unsaved_object = false;
+        return $this;
     }
     
     // Save any changes to this object.
@@ -174,8 +182,8 @@ class Base
         {
             $ps = self::$_db->prepare('SELECT * FROM ' . static::$_table . ' WHERE ' . static::$_pk . ' = ? LIMIT 1');
             $ps->execute(array($id));
-            $object = $ps->fetchObject(get_called_class(), array(false));
-            $result = $object ?: null;
+            $object = $ps->fetchObject(get_called_class());
+            $result = $object->_flag_as_saved() ?: null;
         }
         
         // If fetching an array of objects.
@@ -189,9 +197,9 @@ class Base
             
             $result = array_combine($id, array_fill(0, count($id), null));  // Preserve order
             $class = get_called_class();
-            while ($object = $ps->fetchObject($class, array(false)))
+            while ($object = $ps->fetchObject($class))
             {
-                $result[$object->{static::$_pk}] = $object;
+                $result[$object->{static::$_pk}] = $object->_flag_as_saved();
             }
         }
         
@@ -221,9 +229,9 @@ class Base
         
         $result = array();
         $class = get_called_class();
-        while ($object = $ps->fetchObject($class, array(false)))
+        while ($object = $ps->fetchObject($class))
         {
-            $result[] = $object;
+            $result[] = $object->_flag_as_saved();
         }
         return $result;
         
