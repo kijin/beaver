@@ -272,7 +272,7 @@ class Base
         
         // The first argument is the most important one.
         
-        if (!count($args)) throw new BadMethodCallException('Missing arguments');
+        if (!count($args)) throw new BadMethodCallException('Search methods require at least one argument.');
         $search_value = (array)$args[0];
         
         // Look for additional arguments.
@@ -296,7 +296,7 @@ class Base
                 }
                 if (!strlen($order_field) || !property_exists(get_called_class(), $order_field) || $order_field[0] === '_')
                 {
-                    throw new BadMethodCallException('Cannot order by non-existent property: ' . $order_field);
+                    throw new InvalidArgumentException('Cannot order by non-existent property: ' . $order_field);
                 }
                 $order_fields_sql[] = $order_field . ' ' . $order_sign;
             }
@@ -367,3 +367,4 @@ class Base
 
 class Exception extends \Exception { }
 class BadMethodCallException extends \BadMethodCallException { }
+class InvalidArgumentException extends \InvalidArgumentException { }

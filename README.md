@@ -225,7 +225,7 @@ call `find_by_age__lt()` instead. (Notice the extra underscore that helps disamb
 
 Case sensitivity of string comparisons depends on the type of database and other settings.
 
-#### Custom Searching
+### Custom Searching
 
 Beaver can't do joins, subqueries, or anything else that isn't covered in the examples above.
 But even if Beaver can't write those queries for you, it can make it easier for you
