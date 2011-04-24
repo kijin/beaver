@@ -173,20 +173,24 @@ If you have a lot of primary keys to look up, you can also pass an array:
     $primary_keys = array($id1, $id2, $id3, $id4 /* ... */ );
     $objects = User::get_array($primary_keys);
 
-### Built-In Searching
+#### Built-In Searching
 
-Now, this is where it gets fun. If you want to fetch all objects with a certain property, this is what you do:
+Now, this is where it gets fun.
 
-    $objects = User::find_by_group_id(42);
+If you want to fetch all users whose `group_id` is 42, this is what you do:
 
-This works with all properties. Just call `find_by_<PROPERTY>` and you're done.
+    $objects = User::get_if_group_id(42);
 
-You can also sort the results by another column:
+Just call `get_if_<PROPERTY>()` and Beaver will hand you an array of all objects that match your query.
+This works with all properties, except those that begin with an underscore (`_`).
+(Properties that begin with an underscore are not mapped to database columns, as noted above.)
 
-    $objects = User::find_by_group_id(42, 'name+');
-    $objects = User::find_by_group_id(42, 'karma_points-');
-    $objects = User::find_by_group_id(42, 'name+', 20);
-    $objects = User::find_by_group_id(42, 'karma_points-,name+', 20, 40);
+You can also sort the results by the same column, another column, or a combination of columns:
+
+    $objects = User::get_if_group_id(42, 'name+');
+    $objects = User::get_if_group_id(42, 'karma_points-');
+    $objects = User::get_if_group_id(42, 'name+', 20);
+    $objects = User::get_if_group_id(42, 'karma_points-,name+', 20, 40);
 
 The first example above returns all users in group #42, sorted by name in ascending order.
 The second example returns all users in the same group, sorted by karma points in descending order.
@@ -199,15 +203,15 @@ If the `+` or `-` sign is omitted, ascending order is assumed.
 Beaver also supports basic comparison operators when searching.
 For example, the following example returns all users whose age is 30 or greater.
 
-    $objects = User::find_by_age_gte(30, 'name+');
+    $objects = User::get_if_age_gte(30, 'name+');
 
 The next example returns the first 50 users whose age is between 30 and 40.
 
-    $objects = User::find_by_age_between(array(30, 40), 'id+', 50);
+    $objects = User::get_if_age_between(array(30, 40), 'id+', 50);
 
 The next example returns the second page of the list of users whose name starts with "John" (20 per page, ordered by age).
 
-    $objects = User::find_by_name_startswith('John', 'age+', 20, 20);
+    $objects = User::get_if_name_startswith('John', 'age+', 20, 20);
 
 In total, Beaver supports 12 operators for searching.
 
@@ -225,17 +229,17 @@ In total, Beaver supports 12 operators for searching.
   * `_contains` matches all strings that contains the argument.
 
 Note that operators are evaluated only if the full method name does not match a property name.
-So if you have two properties named `age` and `age_lt`, all calls to `find_by_age_lt()` will be interpreted
+So if you have two properties named `age` and `age_lt`, all calls to `get_if_age_lt()` will be interpreted
 as simple matches on `age_lt`, rather than as less-than matches on `age`.
 If you find yourself in this rare situation and you need to do less-than matches on `age`,
-call `find_by_age__lt()` instead. (Notice the extra underscore that helps disambiguate your query.)
+call `get_if_age__lt()` instead. (Notice the extra underscore that helps disambiguate your query.)
 
 Searching may be slow if the columns you're using for searching and sorting are not indexed.
 Also, `_endswith` and `_contains` are always slow, so avoid these if you care about performance.
 
 Case sensitivity of string comparisons depends on the type of database and other settings.
 
-### Custom Searching
+#### Custom Searching
 
 Beaver can't do joins, subqueries, or anything else that isn't covered in the examples above.
 But even if Beaver can't write those queries for you, it can make it easier for you
@@ -259,7 +263,7 @@ Caching
 -------
 
 If you want Beaver to cache the result of a query for a while,
-just add another argument to `get()`, `get_array()`, `find_by_<PROPERTY>`, and `select()`.
+just add another argument to `get()`, `get_array()`, `get_if_<PROPERTY>`, and `select()`.
 
     $obj = User::get($id, 300);  // Cache for 300 seconds = 5 minutes.
 
@@ -269,12 +273,12 @@ because otherwise Beaver can't distinguish the caching argument from all the oth
     $primary_keys = array($id1, $id2, $id3, $id4 /* ... */ );
     $objects = User::get_array($primary_keys, 300);
 
-Likewise, when calling `find_by_<PROPERTY>` or `select()` with a caching argument,
+Likewise, when calling `get_if_<PROPERTY>()` or `select()` with a caching argument,
 make sure you don't skip optional arguments, such as sorting, limit/offset, or parameters.
 You can use `null` to skip the limit/offset arguments, and `array()` to indicate an empty parameter list.
 
-    $objects = User::find_by_age_lte(30, 'name+', null, null, 300);  // OK
-    $objects = User::find_by_age_lte(30, 300);                       // WRONG
+    $objects = User::get_if_age_lte(30, 'name+', null, null, 300);  // OK
+    $objects = User::get_if_age_lte(30, 300);                       // WRONG
 
     $objects = User::select('WHERE group_id IS NULL', array(), 300);  // OK
     $objects = User::select('WHERE group_id IS NULL', 300);           // WRONG
