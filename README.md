@@ -34,13 +34,14 @@ Configuration
 Beaver doesn't manage database connections for you.
 So you connect to the database first, and then inject the PDO object into Beaver.
 
-    $pdo = new PDO('mysql:host=localhost;dbname=test', 'username', 'password');
+    $pdo = new \PDO('mysql:host=localhost;dbname=test', 'username', 'password');
+    $pdo->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);  // Recommended
     Beaver\Base::set_database($pdo);
 
 Now, do the same for the cache connection.
 This is optional. Beaver also works perfectly fine without caching.
 
-    $cache = new Memcached;
+    $cache = new \Memcached;
     $cache->addServer('127.0.0.1', 11211);
     Beaver\Base::set_cache($cache);
 
