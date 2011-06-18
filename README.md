@@ -231,7 +231,7 @@ In total, Beaver supports 12 operators for searching.
 
 Note that operators are evaluated only if the full method name does not match a property name.
 So if you have two properties named `age` and `age_lt`, all calls to `get_if_age_lt()` will be interpreted
-as simple matches on `age_lt`, rather than as less-than matches on `age`.
+as an exact match on `age_lt`, rather than as a less-than match on `age`.
 If you find yourself in this rare situation and you need to do less-than matches on `age`,
 call `get_if_age__lt()` instead. (Notice the extra underscore that helps disambiguate your query.)
 

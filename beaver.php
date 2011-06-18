@@ -10,7 +10,7 @@
  * @copyright  (c) 2010-2011, Kijin Sung <kijin.sung@gmail.com>
  * @license    LGPL v3 <http://www.gnu.org/copyleft/lesser.html>
  * @link       http://github.com/kijin/beaver
- * @version    0.2.3
+ * @version    0.2.4
  * 
  * -----------------------------------------------------------------------------
  * 
@@ -94,6 +94,7 @@ class Base
             foreach (get_object_vars($this) as $field => $value)
             {
                 if ($field[0] === '_') continue;
+                if ($field === static::$_pk && is_null($this->{static::$_pk}) && $this->_is_unsaved_object) continue;
                 $fields[] = $field;
                 $values[] = $value;
             }
