@@ -203,6 +203,7 @@ class Base
         $class = get_called_class();
         $result = $ps->fetchObject($class);
         if (!$result) return null;
+        $result->_flag_as_saved();
         
         // Store in cache.
         
