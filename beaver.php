@@ -6,15 +6,15 @@
  * -----------------------------------------------------------------------------
  * 
  * @package    Beaver
- * @author     Kijin Sung <kijin.sung@gmail.com>
- * @copyright  (c) 2010-2011, Kijin Sung <kijin.sung@gmail.com>
+ * @author     Kijin Sung <kijin@kijinsung.com>
+ * @copyright  (c) 2010-2013, Kijin Sung <kijin@kijinsung.com>
  * @license    LGPL v3 <http://www.gnu.org/copyleft/lesser.html>
  * @link       http://github.com/kijin/beaver
- * @version    0.2.4
+ * @version    0.2.5
  * 
  * -----------------------------------------------------------------------------
  * 
- * Copyright (c) 2010-2011, Kijin Sung <kijin.sung@gmail.com>
+ * Copyright (c) 2010-2013, Kijin Sung <kijin@kijinsung.com>
  * 
  * This program is free software: you can redistribute it and/or modify it
  * under the terms of the GNU Lesser General Public License as published by
@@ -145,6 +145,8 @@ class Base
                     $this->$field = $value;
                 }
             }
+            
+            if (self::$_cache) $this->invalidate_cache();
         }
     }
     
@@ -155,14 +157,57 @@ class Base
         $ps = self::$_db->prepare('DELETE FROM ' . static::$_table . ' WHERE ' . static::$_pk . ' = ?');
         $ps->execute(array($this->{static::$_pk}));
         $this->_is_unsaved_object = true;
+        
+        if (self::$_cache) $this->invalidate_cache();
+    }
+    
+    // Invalidate the cache entry for this object.
+    
+    public function invalidate_cache()
+    {
+        $cache_key = '_BEAVER::' . static::$_table . ':pk:' . $this->{static::$_pk};
+        if (self::$_cache) self::$_cache->delete($cache_key);
+    }
+    
+    // Invalidate the cache entry for multiple objects of the same class.
+    
+    public static function invalidate_cache_array($pklist)
+    {
+        $cache_key = '_BEAVER::' . static::$_table . ':pk:';
+        if (self::$_cache)
+        {
+            foreach ($pklist as $pk)
+            {
+                self::$_cache->delete($cache_key . $pk);
+            }
+        }
     }
     
     // Fetch a single object, identified by its ID.
     
     public static function get($id, $cache = false)
     {
-        $result = static::select('WHERE ' . static::$_pk . ' = ?', array($id), $cache);
-        return count($result) ? $result[0] : null;
+        // Look up the cache.
+        
+        if ($cache && self::$_cache)
+        {
+            $cache_key = '_BEAVER::' . static::$_table . ':pk:' . (string)$id;
+            $cache_result = self::$_cache->get($cache_key);
+            if ($cache_result !== false && $cache_result !== null) return unserialize($cache_result);
+        }
+        
+        // Find the object.
+        
+        $ps = self::$_db->prepare('SELECT * FROM ' . static::$_table . ' WHERE ' . static::$_pk . ' = ?');
+        $ps->execute(array($id));
+        $class = get_called_class();
+        $result = $ps->fetchObject($class);
+        if (!$result) return null;
+        
+        // Store in cache.
+        
+        if ($cache && self::$_cache) self::$_cache->set($cache_key, serialize($result), (int)$cache);
+        return $result;
     }
     
     // Fetch an array of objects, identified by their IDs.
@@ -181,7 +226,7 @@ class Base
         
         if ($cache && self::$_cache)
         {
-            $cache_key = '_BEAVER::' . get_called_class() . ':' . sha1(serialize($ids = (array)$ids));
+            $cache_key = '_BEAVER::' . static::$_table . ':arr:' . sha1(serialize($ids = (array)$ids));
             $cache_result = self::$_cache->get($cache_key);
             if ($cache_result !== false && $cache_result !== null) return unserialize($cache_result);
         }
@@ -214,7 +259,7 @@ class Base
         
         if ($cache && self::$_cache)
         {
-            $cache_key = '_BEAVER::' . get_called_class() . ':' . sha1($where . "\n" . serialize($params));
+            $cache_key = '_BEAVER::' . static::$_table . ':sel:' . sha1($where . "\n" . serialize($params));
             $cache_result = self::$_cache->get($cache_key);
             if ($cache_result !== false && $cache_result !== null) return unserialize($cache_result);
         }
