@@ -1,11 +1,9 @@
 {
     "name": "kijin/beaver",
     "description": "Super lightweight ORM for PHP 5.3+",
-    "version": "0.2.5",
     "type": "library",
     "keywords": ["orm", "mysql", "pgsql", "sqlite", "memcached"],
     "homepage": "https://github.com/kijin/beaver",
-    "time": "2013-05-22",
     "license": "LGPL-3.0+",
     "authors": [
         {
