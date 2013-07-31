@@ -10,7 +10,7 @@
  * @copyright  (c) 2010-2013, Kijin Sung <kijin@kijinsung.com>
  * @license    LGPL v3 <http://www.gnu.org/copyleft/lesser.html>
  * @link       http://github.com/kijin/beaver
- * @version    0.2.5
+ * @version    0.2.6
  * 
  * -----------------------------------------------------------------------------
  * 
@@ -43,7 +43,7 @@ class Base
     protected static $_db = null;
     protected static $_db_is_pgsql = false;
     protected static $_cache = null;
-    protected $_is_unsaved_object = true;
+    protected $_is_unsaved = true;
     
     // The following properties may be overridden by children.
     
@@ -68,14 +68,6 @@ class Base
         self::$_cache = $cache;
     }
     
-    // Flag this object as saved. (This flag is used internally by the ORM.)
-    
-    final public function _flag_as_saved()
-    {
-        $this->_is_unsaved_object = false;
-        return $this;
-    }
-    
     // Save any changes to this object.
     
     public function save($data = array())
@@ -94,7 +86,7 @@ class Base
             foreach (get_object_vars($this) as $field => $value)
             {
                 if ($field[0] === '_') continue;
-                if ($field === static::$_pk && is_null($this->{static::$_pk}) && $this->_is_unsaved_object) continue;
+                if ($field === static::$_pk && is_null($this->{static::$_pk}) && $this->_is_unsaved) continue;
                 $fields[] = $field;
                 $values[] = $value;
             }
@@ -102,7 +94,7 @@ class Base
         
         // If inserting a new row.
         
-        if ($this->_is_unsaved_object)
+        if ($this->_is_unsaved)
         {
             $query = 'INSERT INTO ' . static::$_table . ' (';
             $query .= implode(', ', $fields) . ') VALUES (';
@@ -123,7 +115,7 @@ class Base
                 $this->{static::$_pk} = self::$_db->lastInsertId();
             }
             
-            $this->_is_unsaved_object = false;
+            $this->_is_unsaved = false;
         }
         
         // If updating an existing row.
@@ -156,7 +148,7 @@ class Base
     {
         $ps = self::$_db->prepare('DELETE FROM ' . static::$_table . ' WHERE ' . static::$_pk . ' = ?');
         $ps->execute(array($this->{static::$_pk}));
-        $this->_is_unsaved_object = true;
+        $this->_is_unsaved = true;
         
         if (self::$_cache) $this->invalidate_cache();
     }
@@ -203,7 +195,7 @@ class Base
         $class = get_called_class();
         $result = $ps->fetchObject($class);
         if (!$result) return null;
-        $result->_flag_as_saved();
+        $result->_is_unsaved = false;
         
         // Store in cache.
         
@@ -243,7 +235,8 @@ class Base
         $class = get_called_class();
         while ($object = $ps->fetchObject($class))
         {
-            $result[$object->{static::$_pk}] = $object->_flag_as_saved();
+            $object->_is_unsaved = false;
+            $result[$object->{static::$_pk}] = $object;
         }
         
         // Store in cache.
@@ -274,7 +267,8 @@ class Base
         $class = get_called_class();
         while ($object = $ps->fetchObject($class))
         {
-            $result[] = $object->_flag_as_saved();
+            $object->_is_unsaved = false;
+            $result[] = $object;
         }
         
         // Store in cache.
