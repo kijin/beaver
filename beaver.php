@@ -10,7 +10,7 @@
  * @copyright  (c) 2010-2013, Kijin Sung <kijin@kijinsung.com>
  * @license    LGPL v3 <http://www.gnu.org/copyleft/lesser.html>
  * @link       http://github.com/kijin/beaver
- * @version    0.2.6
+ * @version    0.2.7
  * 
  * -----------------------------------------------------------------------------
  * 
@@ -229,7 +229,7 @@ class Base
         $query = 'SELECT * FROM ' . static::$_table . ' WHERE ' . static::$_pk . ' IN (';
         $query .= implode(', ', array_fill(0, count($ids), '?')) . ')';
         $ps = self::$_db->prepare($query);
-        $ps->execute($ids);
+        $ps->execute(array_values($ids));
         
         $result = array_combine($ids, array_fill(0, count($ids), null));
         $class = get_called_class();
