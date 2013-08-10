@@ -10,7 +10,7 @@
  * @copyright  (c) 2010-2013, Kijin Sung <kijin@kijinsung.com>
  * @license    LGPL v3 <http://www.gnu.org/copyleft/lesser.html>
  * @link       http://github.com/kijin/beaver
- * @version    0.2.7
+ * @version    0.2.8
  * 
  * -----------------------------------------------------------------------------
  * 
@@ -268,7 +268,7 @@ class Base
         while ($object = $ps->fetchObject($class))
         {
             $object->_is_unsaved = false;
-            $result[] = $object;
+            $result[$object->{static::$_pk}] = $object;
         }
         
         // Store in cache.
