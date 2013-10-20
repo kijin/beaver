@@ -92,6 +92,34 @@ This will cause errors if you define properties that don't exist in the database
 If you need to define additional properties, make them begin with an underscore (`_`).
 Properties that begin with an underscore will be ignored by Beaver.
 
+It is also a good idea to create a collection class that goes with your regular class.
+In Beaver 0.2.9 and earlier, methods that return multiple objects, such as `get_array()`, `get_if_*()` and `select()`, returned them in an array.
+In Beaver 0.3.0 and later, they will return an instance of a collection class that implements the `Iterator` interface.
+This class behaves just like an array in most common use cases, such as a `foreach()` loop.
+However, you can also write methods to perform various batch operations on collections of objects.
+This is preferable to performing the same operation on each object individually.
+
+To use a collection class, just create a class with the same name as your regular class, but with `Collection` appended to it.
+This class should extend `Beaver\Collection`. For example:
+
+    class UserCollection extends Beaver\Collection
+    {
+        public function get_average_age()
+        {
+            $sum = 0;
+            foreach ($this->objects as $user)
+            {
+                $sum += $user->age;
+            }
+            return $sum / $this->count;
+        }
+    }
+
+As you can see, `Beaver\Collection` comes with a few properties for your programming convenience.
+Documentation of these properties is currently underway. In the meantime, please refer to the source code for reference.
+
+If a custom collection class is not defined, methods that return multiple objects will simply return an instance of `Beaver\Collection`.
+
 Everyday Usage
 --------------
 
