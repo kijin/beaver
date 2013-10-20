@@ -193,7 +193,7 @@ class Base
     
     // Get the table name with the prefix.
     
-    public function get_table_name()
+    public static function get_table_name()
     {
         return self::$_db_prefix . static::$_table;
     }
