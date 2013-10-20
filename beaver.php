@@ -84,13 +84,6 @@ class Base
         self::$_cache_prefix = $prefix;
     }
     
-    // Call this method to get the table name with the prefix.
-    
-    public function get_table()
-    {
-        return self::$_db_prefix . static::$_table;
-    }
-    
     // Save any changes to this object.
     
     public function save($data = array())
@@ -196,6 +189,13 @@ class Base
                 self::$_cache->delete($cache_key . $pk);
             }
         }
+    }
+    
+    // Get the table name with the prefix.
+    
+    public function get_table_name()
+    {
+        return self::$_db_prefix . static::$_table;
     }
     
     // Fetch a single object, identified by its ID.
