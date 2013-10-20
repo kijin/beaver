@@ -276,6 +276,18 @@ class Base
     
     public static function select($where, $params = array(), $cache = false)
     {
+        // This method can also be called with an arbitrary number of arguments instead of an array.
+        
+        if (!is_array($params))
+        {
+            $params = func_get_args(); array_shift($params);
+            $cache = false;
+        }
+        
+        // Remove any non-numeric keys from the array.
+        
+        $ids = array_values($ids);
+        
         // Look up the cache.
         
         if ($cache && self::$_cache)
