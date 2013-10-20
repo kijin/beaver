@@ -10,7 +10,7 @@
  * @copyright  (c) 2010-2013, Kijin Sung <kijin@kijinsung.com>
  * @license    LGPL v3 <http://www.gnu.org/copyleft/lesser.html>
  * @link       http://github.com/kijin/beaver
- * @version    0.2.8
+ * @version    0.2.9
  * 
  * -----------------------------------------------------------------------------
  * 
@@ -42,7 +42,9 @@ class Base
     
     protected static $_db = null;
     protected static $_db_is_pgsql = false;
+    protected static $_db_prefix = '';
     protected static $_cache = null;
+    protected static $_cache_prefix = '';
     protected $_is_unsaved = true;
     
     // The following properties may be overridden by children.
@@ -61,11 +63,32 @@ class Base
         }
     }
     
+    // Call this method to set the database prefix (e.g. 'wp_').
+    
+    final public static function set_database_prefix($prefix)
+    {
+        self::$_db_prefix = $prefix;
+    }
+    
     // Call this method to inject a Memcached object (or equivalent) to the ORM.
     
     final public static function set_cache($cache)
     {
         self::$_cache = $cache;
+    }
+    
+    // Call this method to set the cache prefix (e.g. 'wp_').
+    
+    final public static function set_cache_prefix($prefix)
+    {
+        self::$_cache_prefix = $prefix;
+    }
+    
+    // Call this method to get the table name with the prefix.
+    
+    public function get_table()
+    {
+        return self::$_db_prefix . static::$_table;
     }
     
     // Save any changes to this object.
@@ -96,7 +119,7 @@ class Base
         
         if ($this->_is_unsaved)
         {
-            $query = 'INSERT INTO ' . static::$_table . ' (';
+            $query = 'INSERT INTO ' . self::$_db_prefix . static::$_table . ' (';
             $query .= implode(', ', $fields) . ') VALUES (';
             $query .= implode(', ', array_fill(0, count($values), '?'));
             $query .= ')';
@@ -122,7 +145,7 @@ class Base
         
         else
         {
-            $query = 'UPDATE ' . static::$_table . ' SET ';
+            $query = 'UPDATE ' . self::$_db_prefix . static::$_table . ' SET ';
             $query .= implode(', ', array_map(function($str) { return $str . ' = ?'; }, $fields));
             $query .= ' WHERE ' . static::$_pk . ' = ?';
             $values[] = $this->{static::$_pk};
@@ -146,7 +169,7 @@ class Base
     
     public function delete()
     {
-        $ps = self::$_db->prepare('DELETE FROM ' . static::$_table . ' WHERE ' . static::$_pk . ' = ?');
+        $ps = self::$_db->prepare('DELETE FROM ' . self::$_db_prefix . static::$_table . ' WHERE ' . static::$_pk . ' = ?');
         $ps->execute(array($this->{static::$_pk}));
         $this->_is_unsaved = true;
         
@@ -157,7 +180,7 @@ class Base
     
     public function invalidate_cache()
     {
-        $cache_key = '_BEAVER::' . static::$_table . ':pk:' . $this->{static::$_pk};
+        $cache_key = self::$_cache_prefix . '_BEAVER::' . static::$_table . ':pk:' . $this->{static::$_pk};
         if (self::$_cache) self::$_cache->delete($cache_key);
     }
     
@@ -165,7 +188,7 @@ class Base
     
     public static function invalidate_cache_array($pklist)
     {
-        $cache_key = '_BEAVER::' . static::$_table . ':pk:';
+        $cache_key = self::$_cache_prefix . '_BEAVER::' . static::$_table . ':pk:';
         if (self::$_cache)
         {
             foreach ($pklist as $pk)
@@ -183,14 +206,14 @@ class Base
         
         if ($cache && self::$_cache)
         {
-            $cache_key = '_BEAVER::' . static::$_table . ':pk:' . (string)$id;
+            $cache_key = self::$_cache_prefix . '_BEAVER::' . static::$_table . ':pk:' . (string)$id;
             $cache_result = self::$_cache->get($cache_key);
             if ($cache_result !== false && $cache_result !== null) return unserialize($cache_result);
         }
         
         // Find the object.
         
-        $ps = self::$_db->prepare('SELECT * FROM ' . static::$_table . ' WHERE ' . static::$_pk . ' = ?');
+        $ps = self::$_db->prepare('SELECT * FROM ' . self::$_db_prefix . static::$_table . ' WHERE ' . static::$_pk . ' = ?');
         $ps->execute(array($id));
         $class = get_called_class();
         $result = $ps->fetchObject($class);
@@ -215,21 +238,25 @@ class Base
             $cache = false;
         }
         
+        // Remove any non-numeric keys from the array.
+        
+        $ids = array_values($ids);
+        
         // Look up the cache.
         
         if ($cache && self::$_cache)
         {
-            $cache_key = '_BEAVER::' . static::$_table . ':arr:' . sha1(serialize($ids = (array)$ids));
+            $cache_key = self::$_cache_prefix . '_BEAVER::' . static::$_table . ':arr:' . sha1(serialize($ids));
             $cache_result = self::$_cache->get($cache_key);
             if ($cache_result !== false && $cache_result !== null) return unserialize($cache_result);
         }
         
         // Find some objects, preserving the order in the input array.
         
-        $query = 'SELECT * FROM ' . static::$_table . ' WHERE ' . static::$_pk . ' IN (';
+        $query = 'SELECT * FROM ' . self::$_db_prefix . static::$_table . ' WHERE ' . static::$_pk . ' IN (';
         $query .= implode(', ', array_fill(0, count($ids), '?')) . ')';
         $ps = self::$_db->prepare($query);
-        $ps->execute(array_values($ids));
+        $ps->execute($ids);
         
         $result = array_combine($ids, array_fill(0, count($ids), null));
         $class = get_called_class();
@@ -253,14 +280,14 @@ class Base
         
         if ($cache && self::$_cache)
         {
-            $cache_key = '_BEAVER::' . static::$_table . ':sel:' . sha1($where . "\n" . serialize($params));
+            $cache_key = self::$_cache_prefix . '_BEAVER::' . static::$_table . ':sel:' . sha1($where . "\n" . serialize($params));
             $cache_result = self::$_cache->get($cache_key);
             if ($cache_result !== false && $cache_result !== null) return unserialize($cache_result);
         }
         
         // Find some objects.
         
-        $ps = self::$_db->prepare('SELECT * FROM ' . static::$_table . ' ' . $where);
+        $ps = self::$_db->prepare('SELECT * FROM ' . self::$_db_prefix . static::$_table . ' ' . $where);
         $ps->execute((array)$params);
         
         $result = array();
