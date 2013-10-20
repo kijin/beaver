@@ -272,6 +272,17 @@ class Base
         return $result;
     }
     
+    // Fetch the first object that matches a condition. This is a shortcut to select().
+    
+    public static function get_first($where, $params = array(), $cache = false)
+    {
+        // Get the arguments and send them to select().
+        
+        $args = func_get_args();
+        $result = call_user_func_array('static::select', $args);
+        return current($result);
+    }
+    
     // Generic select method.
     
     public static function select($where, $params = array(), $cache = false)
@@ -286,7 +297,7 @@ class Base
         
         // Remove any non-numeric keys from the array.
         
-        $ids = array_values($ids);
+        $params = array_values($params);
         
         // Look up the cache.
         
