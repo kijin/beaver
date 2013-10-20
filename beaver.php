@@ -10,7 +10,7 @@
  * @copyright  (c) 2010-2013, Kijin Sung <kijin@kijinsung.com>
  * @license    LGPL v3 <http://www.gnu.org/copyleft/lesser.html>
  * @link       http://github.com/kijin/beaver
- * @version    0.2.9
+ * @version    0.3.0
  * 
  * -----------------------------------------------------------------------------
  * 
@@ -266,6 +266,11 @@ class Base
             $result[$object->{static::$_pk}] = $object;
         }
         
+        // Wrap the result in a collection class.
+        
+        if (!class_exists($colclass = $class . 'Collection') && !class_exists($colclass = $class . '_Collection')) $colclass = '\\Beaver\\Collection';
+        $result = new $colclass($result, $class, self::$_db_prefix . static::$_table, self::$_db, self::$_cache, self::$_pk);
+        
         // Store in cache.
         
         if ($cache && self::$_cache) self::$_cache->set($cache_key, serialize($result), (int)$cache);
@@ -320,6 +325,11 @@ class Base
             $object->_is_unsaved = false;
             $result[$object->{static::$_pk}] = $object;
         }
+        
+        // Wrap the result in a collection class.
+        
+        if (!class_exists($colclass = $class . 'Collection') && !class_exists($colclass = $class . '_Collection')) $colclass = '\\Beaver\\Collection';
+        $result = new $colclass($result, $class, self::$_db_prefix . static::$_table, self::$_db, self::$_cache, self::$_pk);
         
         // Store in cache.
         
@@ -457,6 +467,97 @@ class Base
         // Return all matching objects.
         
         return static::select($query, $search_value, isset($cache) ? $cache : false);
+    }
+}
+
+// The collection class. Extend this class for each object type you need.
+
+class Collection implements \Iterator
+{
+    // The objects and their properties are stored here.
+    
+    protected $objects;
+    protected $class_name;
+    protected $table_name;
+    protected $ids;
+    protected $count;
+    protected $db;
+    protected $cache;
+    protected $pk;
+    
+    // The constructor.
+    
+    public function __construct(array $objects, $class_name, $table_name, $db, $cache, $pk)
+    {
+        $this->objects = $objects;
+        $this->class_name = $class_name;
+        $this->ids = array_keys($objects);
+        $this->count = count($this->ids);
+        $this->db = $db;
+        $this->cache = $cache;
+        $this->table_name = $table_name;
+        $this->pk = $pk;
+        reset($this->objects);
+    }
+    
+    // Methods for the Iterator interface.
+    
+    public function rewind()
+    {
+        reset($this->objects);
+    }
+    
+    public function current()
+    {
+        return current($this->objects);
+    }
+    
+    public function key()
+    {
+        return key($this->objects);
+    }
+    
+    public function next()
+    {
+        return next($this->objects);
+    }
+    
+    public function valid()
+    {
+        return key($this->objects) !== null;
+    }
+    
+    // Count the objects in the collection.
+    
+    public function count()
+    {
+        return $this->count;
+    }
+    
+    // Return the IDs of all the objects in the collection.
+    
+    public function get_ids()
+    {
+        return $this->ids;
+    }
+    
+    // Return a series of question marks that can be used as placeholders for IDs in a prepared statement.
+    
+    public function get_placeholders()
+    {
+        return implode(', ', array_fill(0, $this->count, '?'));
+    }
+    
+    // Delete all the objects in the collection.
+    
+    public function delete()
+    {
+        call_user_func_array(array($this->class_name, 'invalidate_cache_array'), $this->ids);
+        $ps = $this->db->prepare('DELETE FROM ' . $this->table_name . ' WHERE ' . $this->pk . ' IN (' . $this->get_placeholders() . ')');
+        $ps->execute($this->ids);
+        $this->objects = array();
+        $this->ids = array();
+        $this->count = 0;
     }
 }
 
