@@ -10,7 +10,7 @@
  * @copyright  (c) 2010-2013, Kijin Sung <kijin@kijinsung.com>
  * @license    LGPL v3 <http://www.gnu.org/copyleft/lesser.html>
  * @link       http://github.com/kijin/beaver
- * @version    0.3.0
+ * @version    0.3.1
  * 
  * -----------------------------------------------------------------------------
  * 
@@ -346,10 +346,12 @@ class Base
         if (strlen($name) > 7 && !strncmp($name, 'get_if_', 7))
         {
             $search_field = substr($name, 7);
+            $only_return_first_result = false;
         }
-        elseif (strlen($name) > 8 && !strncmp($name, 'find_by_', 8))  // Deprecated since 0.2.3
+        elseif (strlen($name) > 13 && !strncmp($name, 'get_first_if_', 13))
         {
-            $search_field = substr($name, 8);
+            $search_field = substr($name, 13);
+            $only_return_first_result = true;
         }
         else
         {
@@ -466,7 +468,8 @@ class Base
         
         // Return all matching objects.
         
-        return static::select($query, $search_value, isset($cache) ? $cache : false);
+        $result = static::select($query, $search_value, isset($cache) ? $cache : false);
+        return $only_return_first_result ? current($result) : $result;
     }
 }
 
