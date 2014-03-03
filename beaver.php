@@ -475,7 +475,7 @@ class Base
 
 // The collection class. Extend this class for each object type you need.
 
-class Collection implements \Iterator
+class Collection implements \ArrayAccess, \Iterator
 {
     // The objects and their properties are stored here.
     
@@ -501,6 +501,35 @@ class Collection implements \Iterator
         $this->_table_name = $table_name;
         $this->_pk = $pk;
         reset($this->_objects);
+    }
+    
+    // Methods for the ArrayAccess interface.
+    
+    public function offsetExists($offset)
+    {
+        return isset($this->_objects[$offset]);
+    }
+    
+    public function offsetGet($offset)
+    {
+        return isset($this->_objects[$offset]) ? $this->_objects[$offset] : null;
+    }
+    
+    public function offsetSet($offset, $value)
+    {
+        if (is_null($offset))
+        {
+            $this->_objects[] = $value;
+        }
+        else
+        {
+            $this->_objects[$offset] = $value;
+        }
+    }
+    
+    public function offsetUnset($offset)
+    {
+        unset($this->_objects[$offset]);
     }
     
     // Methods for the Iterator interface.
