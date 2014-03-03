@@ -10,7 +10,7 @@
  * @copyright  (c) 2010-2013, Kijin Sung <kijin@kijinsung.com>
  * @license    LGPL v3 <http://www.gnu.org/copyleft/lesser.html>
  * @link       http://github.com/kijin/beaver
- * @version    0.3.1
+ * @version    0.3.2
  * 
  * -----------------------------------------------------------------------------
  * 
@@ -268,7 +268,7 @@ class Base
         
         // Wrap the result in a collection class.
         
-        if (!class_exists($colclass = $class . 'Collection') && !class_exists($colclass = $class . '_Collection')) $colclass = '\\Beaver\\Collection';
+        if (!class_exists($colclass = $class . '_Collection') && !class_exists($colclass = $class . 'Collection')) $colclass = '\\Beaver\\Collection';
         $result = new $colclass($result, $class, self::$_db_prefix . static::$_table, self::$_db, self::$_cache, self::$_pk);
         
         // Store in cache.
@@ -285,7 +285,7 @@ class Base
         
         $args = func_get_args();
         $result = call_user_func_array('static::select', $args);
-        return current($result);
+        return $result->current();
     }
     
     // Generic select method.
@@ -328,7 +328,7 @@ class Base
         
         // Wrap the result in a collection class.
         
-        if (!class_exists($colclass = $class . 'Collection') && !class_exists($colclass = $class . '_Collection')) $colclass = '\\Beaver\\Collection';
+        if (!class_exists($colclass = $class . '_Collection') && !class_exists($colclass = $class . 'Collection')) $colclass = '\\Beaver\\Collection';
         $result = new $colclass($result, $class, self::$_db_prefix . static::$_table, self::$_db, self::$_cache, self::$_pk);
         
         // Store in cache.
