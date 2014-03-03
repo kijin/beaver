@@ -10,7 +10,7 @@
  * @copyright  (c) 2010-2013, Kijin Sung <kijin@kijinsung.com>
  * @license    LGPL v3 <http://www.gnu.org/copyleft/lesser.html>
  * @link       http://github.com/kijin/beaver
- * @version    0.3.2
+ * @version    0.3.3
  * 
  * -----------------------------------------------------------------------------
  * 
@@ -479,88 +479,89 @@ class Collection implements \Iterator
 {
     // The objects and their properties are stored here.
     
-    protected $objects;
-    protected $class_name;
-    protected $table_name;
-    protected $ids;
-    protected $count;
-    protected $db;
-    protected $cache;
-    protected $pk;
+    protected $_objects;
+    protected $_class_name;
+    protected $_table_name;
+    protected $_ids;
+    protected $_count;
+    protected $_db;
+    protected $_cache;
+    protected $_pk;
     
     // The constructor.
     
     public function __construct(array $objects, $class_name, $table_name, $db, $cache, $pk)
     {
-        $this->objects = $objects;
-        $this->class_name = $class_name;
-        $this->ids = array_keys($objects);
-        $this->count = count($this->ids);
-        $this->db = $db;
-        $this->cache = $cache;
-        $this->table_name = $table_name;
-        $this->pk = $pk;
-        reset($this->objects);
+        $this->_objects = $objects;
+        $this->_class_name = $class_name;
+        $this->_ids = array_keys($objects);
+        $this->_count = count($this->_ids);
+        $this->_db = $db;
+        $this->_cache = $cache;
+        $this->_table_name = $table_name;
+        $this->_pk = $pk;
+        reset($this->_objects);
     }
     
     // Methods for the Iterator interface.
     
     public function rewind()
     {
-        reset($this->objects);
+        reset($this->_objects);
     }
     
     public function current()
     {
-        return current($this->objects);
+        return current($this->_objects);
     }
     
     public function key()
     {
-        return key($this->objects);
+        return key($this->_objects);
     }
     
     public function next()
     {
-        return next($this->objects);
+        return next($this->_objects);
     }
     
     public function valid()
     {
-        return key($this->objects) !== null;
+        $key = key($this->_objects);
+        return ($key !== null && $key !== false);
     }
     
     // Count the objects in the collection.
     
     public function count()
     {
-        return $this->count;
+        return $this->_count;
     }
     
     // Return the IDs of all the objects in the collection.
     
     public function get_ids()
     {
-        return $this->ids;
+        return $this->_ids;
     }
     
     // Return a series of question marks that can be used as placeholders for IDs in a prepared statement.
     
     public function get_placeholders()
     {
-        return implode(', ', array_fill(0, $this->count, '?'));
+        return implode(', ', array_fill(0, $this->_count, '?'));
     }
     
     // Delete all the objects in the collection.
     
     public function delete()
     {
-        call_user_func_array(array($this->class_name, 'invalidate_cache_array'), $this->ids);
-        $ps = $this->db->prepare('DELETE FROM ' . $this->table_name . ' WHERE ' . $this->pk . ' IN (' . $this->get_placeholders() . ')');
-        $ps->execute($this->ids);
-        $this->objects = array();
-        $this->ids = array();
-        $this->count = 0;
+        call_user_func_array(array($this->_class_name, 'invalidate_cache_array'), $this->_ids);
+        $ps = $this->_db->prepare('DELETE FROM ' . $this->_table_name . ' WHERE ' . $this->_pk . ' IN (' . $this->get_placeholders() . ')');
+        $ps->execute($this->_ids);
+        $this->_objects = array();
+        $this->_ids = array();
+        $this->_count = 0;
     }
 }
 
