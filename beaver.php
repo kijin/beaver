@@ -10,7 +10,7 @@
  * @copyright  (c) 2010-2013, Kijin Sung <kijin@kijinsung.com>
  * @license    LGPL v3 <http://www.gnu.org/copyleft/lesser.html>
  * @link       http://github.com/kijin/beaver
- * @version    0.3.3
+ * @version    0.3.4
  * 
  * -----------------------------------------------------------------------------
  * 
@@ -122,13 +122,13 @@ class Base
                 $query .= ' RETURNING ' . static::$_pk;
                 $ps = self::$_db->prepare($query);
                 $ps->execute($values);
-                $this->{static::$_pk} = $ps->fetchColumn();
+                if ($this->{static::$_pk} === null) $this->{static::$_pk} = $ps->fetchColumn();
             }
             else
             {
                 $ps = self::$_db->prepare($query);
                 $ps->execute($values);
-                $this->{static::$_pk} = self::$_db->lastInsertId();
+                if ($this->{static::$_pk} === null) $this->{static::$_pk} = self::$_db->lastInsertId();
             }
             
             $this->_is_unsaved = false;
