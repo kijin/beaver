@@ -10,7 +10,7 @@
  * @copyright  (c) 2010-2013, Kijin Sung <kijin@kijinsung.com>
  * @license    LGPL v3 <http://www.gnu.org/copyleft/lesser.html>
  * @link       http://github.com/kijin/beaver
- * @version    0.3.4
+ * @version    0.3.5
  * 
  * -----------------------------------------------------------------------------
  * 
@@ -475,7 +475,7 @@ class Base
 
 // The collection class. Extend this class for each object type you need.
 
-class Collection implements \ArrayAccess, \Iterator
+class Collection implements \ArrayAccess, \Iterator, \Countable
 {
     // The objects and their properties are stored here.
     
