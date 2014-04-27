@@ -2,19 +2,19 @@
 
 /**
  * -----------------------------------------------------------------------------
- *  B E A V E R   :   Super lightweight object-to-database mapper for PHP 5.3 +
+ *  B E A V E R   :   A lightweight object-relational mapper for PHP 5.3 +
  * -----------------------------------------------------------------------------
  * 
  * @package    Beaver
  * @author     Kijin Sung <kijin@kijinsung.com>
- * @copyright  (c) 2010-2013, Kijin Sung <kijin@kijinsung.com>
+ * @copyright  (c) 2010-2014, Kijin Sung <kijin@kijinsung.com>
  * @license    LGPL v3 <http://www.gnu.org/copyleft/lesser.html>
  * @link       http://github.com/kijin/beaver
- * @version    0.3.5
+ * @version    0.4.0
  * 
  * -----------------------------------------------------------------------------
  * 
- * Copyright (c) 2010-2013, Kijin Sung <kijin@kijinsung.com>
+ * Copyright (c) 2010-2014, Kijin Sung <kijin@kijinsung.com>
  * 
  * This program is free software: you can redistribute it and/or modify it
  * under the terms of the GNU Lesser General Public License as published by
@@ -226,7 +226,7 @@ class Base
         return $result;
     }
     
-    // Fetch an array of objects, identified by their IDs.
+    // Fetch an array of objects, identified by their IDs. This is a shortcut to select().
     
     public static function get_array($ids, $cache = false)
     {
@@ -238,54 +238,66 @@ class Base
             $cache = false;
         }
         
-        // Remove any non-numeric keys from the array.
+        // Send the arguments to select().
         
-        $ids = array_values($ids);
-        
-        // Look up the cache.
-        
-        if ($cache && self::$_cache)
-        {
-            $cache_key = self::$_cache_prefix . '_BEAVER::' . static::$_table . ':arr:' . sha1(serialize($ids));
-            $cache_result = self::$_cache->get($cache_key);
-            if ($cache_result !== false && $cache_result !== null) return unserialize($cache_result);
-        }
-        
-        // Find some objects, preserving the order in the input array.
-        
-        $query = 'SELECT * FROM ' . self::$_db_prefix . static::$_table . ' WHERE ' . static::$_pk . ' IN (';
-        $query .= implode(', ', array_fill(0, count($ids), '?')) . ')';
-        $ps = self::$_db->prepare($query);
-        $ps->execute($ids);
-        
-        $result = array_combine($ids, array_fill(0, count($ids), null));
-        $class = get_called_class();
-        while ($object = $ps->fetchObject($class))
-        {
-            $object->_is_unsaved = false;
-            $result[$object->{static::$_pk}] = $object;
-        }
-        
-        // Wrap the result in a collection class.
-        
-        if (!class_exists($colclass = $class . '_Collection') && !class_exists($colclass = $class . 'Collection')) $colclass = '\\Beaver\\Collection';
-        $result = new $colclass($result, $class, self::$_db_prefix . static::$_table, self::$_db, self::$_cache, self::$_pk);
-        
-        // Store in cache.
-        
-        if ($cache && self::$_cache) self::$_cache->set($cache_key, serialize($result), (int)$cache);
-        return $result;
+        $placeholders = implode(', ', array_fill(0, count($ids), '?'));
+        return static::select('WHERE ' . static::$_pk . ' IN (' . $placeholders . ')', $ids, $cache);
     }
     
     // Fetch the first object that matches a condition. This is a shortcut to select().
     
     public static function get_first($where, $params = array(), $cache = false)
     {
-        // Get the arguments and send them to select().
+        // Add a "LIMIT 1" clause if the query does not already contain a limit.
         
         $args = func_get_args();
+        if (stripos($args[0], ' LIMIT ') === false) $args[0] = rtrim($args[0], "\t\r\n ;") . ' LIMIT 1';
+        
+        // Send the arguments to select() and return the first result.
+        
         $result = call_user_func_array('static::select', $args);
         return $result->current();
+    }
+    
+    // Return true if there exists an object that matches a condition, false otherwise.
+    
+    public static function exists($where, $params = array(), $cache = false)
+    {
+        // This method can also be called with an arbitrary number of arguments instead of an array.
+        
+        if (!is_array($params))
+        {
+            $params = func_get_args(); array_shift($params);
+            $cache = false;
+        }
+        
+        // Remove any non-numeric keys from the array.
+        
+        $params = array_values($params);
+        
+        // Look up the cache.
+        
+        if ($cache && self::$_cache)
+        {
+            $cache_key = self::$_cache_prefix . '_BEAVER::' . static::$_table . ':ex:' . sha1($where . "\n" . serialize($params));
+            $cache_result = self::$_cache->get($cache_key);
+            if ($cache_result !== false && $cache_result !== null) return unserialize($cache_result);
+        }
+        
+        // Add a "LIMIT 1" clause if the query does not already contain a limit.
+        
+        if (stripos($where, ' LIMIT ') === false) $where = rtrim($where, "\t\r\n ;") . ' LIMIT 1';
+        
+        // Execute the query.
+        
+        $ps = self::$_db->prepare('SELECT 1 FROM ' . self::$_db_prefix . static::$_table . ' ' . $where);
+        $ps->execute($params);
+        $result = (bool)($ps->fetchColumn());
+        
+        // Store in cache.
+        
+        if ($cache && self::$_cache) self::$_cache->set($cache_key, serialize($result), (int)$cache);
+        return $result;
     }
     
     // Generic select method.
@@ -316,7 +328,7 @@ class Base
         // Find some objects.
         
         $ps = self::$_db->prepare('SELECT * FROM ' . self::$_db_prefix . static::$_table . ' ' . $where);
-        $ps->execute((array)$params);
+        $ps->execute($params);
         
         $result = array();
         $class = get_called_class();
@@ -456,6 +468,8 @@ class Base
             default: $query = 'WHERE ' . $search_field . ' = ?';
         }
         
+        // Build the ORDER BY and LIMIT clauses.
+        
         if (isset($order_fields_sql) && count($order_fields_sql))
         {
             $query .= ' ORDER BY ' . implode(', ', $order_fields_sql);
@@ -464,6 +478,10 @@ class Base
         if (isset($limit))
         {
             $query .= ' LIMIT ' . $limit . ' OFFSET ' . $offset;
+        }
+        elseif ($only_return_first_result)
+        {
+            $query .= ' LIMIT 1';
         }
         
         // Return all matching objects.

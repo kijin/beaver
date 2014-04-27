@@ -285,9 +285,21 @@ Queries such as the above can be encapsulated in a method of the `User` class.
 Beaver does not care if you add your own methods to classes, as long as you don't interfere with Beaver's core functions.
 You can, for example, implement your own `save()` method that performs some checks before calling `parent::save()`.
 
+#### Limitations
+
 The above syntax only works if the query returns individual rows, including the primary key.
 For queries that don't return individual rows (such as anything with a `GROUP BY` clause),
 and for all non-`SELECT` queries, you'll have to talk to the database connection (PDO object) directly.
+
+The only exception is when you merely want to check if a row exists that matches your conditions.
+This is a common type of query, so Beaver 0.4.0 and above support an `exists()` method.
+The type and order of arguments are exactly the same as in the `select()` method:
+
+    $exists = User::exists('WHERE age > 40');
+
+The above will return `true` if there exists any user whose age is greater than 40, and `false` otherwise.
+No other information is fetched from the database, and `exists()` will automatically add `LIMIT 1` to your query if it does not already include a limit clause.
+It is therefore much faster than using `get()` or `select()` to fetch records and counting them.
 
 Caching
 -------
@@ -303,7 +315,7 @@ because otherwise Beaver can't distinguish the caching argument from all the oth
     $primary_keys = array($id1, $id2, $id3, $id4 /* ... */ );
     $objects = User::get_array($primary_keys, 300);
 
-Likewise, when calling `get_if_<PROPERTY>()` or `select()` with a caching argument,
+Likewise, when calling `get_if_<PROPERTY>()`, `select()` or `exists()` with a caching argument,
 make sure you don't skip optional arguments, such as sorting, limit/offset, or parameters.
 You can use `null` to skip the limit/offset arguments, and `array()` to indicate an empty parameter list.
 
